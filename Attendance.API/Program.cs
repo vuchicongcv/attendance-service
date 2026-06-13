@@ -43,10 +43,13 @@ app.UseExceptionHandler(exceptionHandlerApp =>
 {
     exceptionHandlerApp.Run(async context =>
     {
+        var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+        var msg = feature?.Error.Message ?? "Unknown error";
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         context.Response.Headers["Access-Control-Allow-Origin"] = "*";
-        await context.Response.WriteAsync("{\"error\":\"Internal server error\"}");
+        var safeMsg = msg.Replace("\"", "'").Replace("\r", "").Replace("\n", "");
+        await context.Response.WriteAsync($"{{\"error\":\"{safeMsg}\"}}");
     });
 });
 
