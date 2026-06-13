@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<OvertimeRecord> OvertimeRecords => Set<OvertimeRecord>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
+    public DbSet<EmployeeInfo> EmployeeInfo => Set<EmployeeInfo>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +37,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Holiday>(entity =>
         {
             entity.HasIndex(e => e.Date);
+        });
+
+        modelBuilder.Entity<EmployeeInfo>(entity =>
+        {
+            entity.HasIndex(e => e.EmployeeCode).IsUnique();
         });
     }
 }

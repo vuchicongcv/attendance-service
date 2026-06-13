@@ -136,3 +136,4 @@ C:\Users\MSI BRAVO\Downloads\lalalalaa\Attendance.API\obj\Debug\net10.0\refint\A
 C:\Users\MSI BRAVO\Downloads\lalalalaa\Attendance.API\obj\Debug\net10.0\Attendance.API.pdb
 C:\Users\MSI BRAVO\Downloads\lalalalaa\Attendance.API\obj\Debug\net10.0\Attendance.API.genruntimeconfig.cache
 C:\Users\MSI BRAVO\Downloads\lalalalaa\Attendance.API\obj\Debug\net10.0\ref\Attendance.API.dll
+C:\Users\MSI BRAVO\Downloads\lalalalaa\Attendance.API\obj\Debug\net10.0\Attendance.API.sourcelink.json

@@ -3,121 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Service - API Tester</title>
+    <title>Attendance Service - HR Integrated</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; min-height: 100vh; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: #07070d; color: #e2e8f0; min-height: 100vh; }
+        .container { max-width: 1440px; margin: 0 auto; padding: 20px; }
 
-        header { background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 20px; border-radius: 12px; margin-bottom: 24px; border: 1px solid #2a2a4a; }
-        header h1 { color: #7c3aed; font-size: 24px; }
-        header p { color: #888; font-size: 14px; margin-top: 4px; }
-        .api-url { display: flex; gap: 8px; margin-top: 12px; }
-        .api-url input { flex: 1; padding: 8px 12px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 6px; color: #e0e0e0; font-size: 14px; }
-        .api-url input:focus { outline: none; border-color: #7c3aed; }
+        /* Header */
+        .app-header { 
+            background: linear-gradient(135deg, #0d0d1a 0%, #1a1040 100%); 
+            padding: 24px 28px; border-radius: 16px; margin-bottom: 28px; 
+            border: 1px solid #1e1e3a; display: flex; justify-content: space-between; align-items: center;
+        }
+        .app-header h1 { color: #a78bfa; font-size: 22px; letter-spacing: -0.5px; }
+        .app-header h1 span { color: #6b7280; font-weight: 400; font-size: 14px; margin-left: 8px; }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+        .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .status-badge.online { background: #065f4622; color: #34d399; border: 1px solid #34d39933; }
+        .status-badge.offline { background: #5f0e0e22; color: #f87171; border: 1px solid #f8717133; }
 
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+        .api-bar {
+            background: #0d0d1a; border: 1px solid #1e1e3a; border-radius: 12px;
+            padding: 14px 18px; margin-bottom: 24px; display: flex; gap: 12px; align-items: center;
+        }
+        .api-bar label { color: #6b7280; font-size: 13px; font-weight: 500; white-space: nowrap; }
+        .api-bar input { 
+            flex: 1; padding: 8px 14px; background: #07070d; border: 1px solid #1e1e3a; 
+            border-radius: 8px; color: #e2e8f0; font-size: 13px; font-family: monospace;
+        }
+        .api-bar input:focus { outline: none; border-color: #7c3aed; }
 
-        .card { background: #1a1a2e; border-radius: 10px; border: 1px solid #2a2a4a; overflow: hidden; }
-        .card-header { padding: 14px 18px; border-bottom: 1px solid #2a2a4a; display: flex; justify-content: space-between; align-items: center; }
-        .card-header h3 { font-size: 15px; color: #a78bfa; }
-        .card-body { padding: 18px; }
+        /* Cards Grid */
+        .grid { display: grid; gap: 20px; }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        @media (max-width: 1100px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 700px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
 
-        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        /* Dashboard Cards */
+        .stat-card {
+            background: linear-gradient(135deg, #0d0d1a, #111125);
+            border: 1px solid #1e1e3a; border-radius: 12px; padding: 20px;
+        }
+        .stat-card .label { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-card .value { font-size: 32px; font-weight: 700; margin-top: 8px; }
+        .stat-card .value.green { color: #34d399; }
+        .stat-card .value.yellow { color: #fbbf24; }
+        .stat-card .value.red { color: #f87171; }
+        .stat-card .value.purple { color: #a78bfa; }
+        .stat-card .value.blue { color: #60a5fa; }
+
+        .card {
+            background: #0d0d1a; border: 1px solid #1e1e3a; border-radius: 12px; overflow: hidden;
+        }
+        .card-header { 
+            padding: 16px 20px; border-bottom: 1px solid #1e1e3a; 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .card-header h3 { font-size: 14px; font-weight: 600; color: #a78bfa; }
+        .card-body { padding: 20px; }
+
+        .tabs { display: flex; gap: 4px; margin-bottom: 16px; background: #07070d; border-radius: 8px; padding: 3px; }
+        .tab {
+            flex: 1; padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+            cursor: pointer; background: transparent; border: none; color: #6b7280; text-align: center;
+            transition: all 0.2s;
+        }
+        .tab.active { background: #7c3aed; color: white; }
+        .tab:hover:not(.active) { color: #e2e8f0; }
+
+        .btn {
+            padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
+            font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-primary { background: #7c3aed; color: white; }
-        .btn-primary:hover { background: #6d28d9; }
+        .btn-primary:hover:not(:disabled) { background: #6d28d9; }
         .btn-success { background: #059669; color: white; }
-        .btn-success:hover { background: #047857; }
+        .btn-success:hover:not(:disabled) { background: #047857; }
         .btn-danger { background: #dc2626; color: white; }
-        .btn-danger:hover { background: #b91c1c; }
+        .btn-danger:hover:not(:disabled) { background: #b91c1c; }
         .btn-warning { background: #d97706; color: white; }
-        .btn-warning:hover { background: #b45309; }
-        .btn-sm { padding: 5px 10px; font-size: 12px; }
-        .btn-outline { background: transparent; border: 1px solid #2a2a4a; color: #e0e0e0; }
-        .btn-outline:hover { border-color: #7c3aed; color: #7c3aed; }
+        .btn-warning:hover:not(:disabled) { background: #b45309; }
+        .btn-outline { background: transparent; border: 1px solid #1e1e3a; color: #e2e8f0; }
+        .btn-outline:hover:not(:disabled) { border-color: #7c3aed; color: #7c3aed; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .btn-lg { padding: 10px 24px; font-size: 14px; }
 
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 5px; font-weight: 500; }
         .form-group input, .form-group select, .form-group textarea {
-            width: 100%; padding: 8px 10px; background: #0f0f1a; border: 1px solid #2a2a4a;
-            border-radius: 6px; color: #e0e0e0; font-size: 13px;
+            width: 100%; padding: 8px 12px; background: #07070d; border: 1px solid #1e1e3a;
+            border-radius: 8px; color: #e2e8f0; font-size: 13px; transition: border-color 0.2s;
         }
         .form-group input:focus, .form-group select:focus { outline: none; border-color: #7c3aed; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-group input::placeholder { color: #4b5563; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 
-        .output { background: #0f0f1a; border-radius: 6px; padding: 12px; margin-top: 12px; max-height: 300px; overflow-y: auto; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; white-space: pre-wrap; }
+        .output {
+            background: #07070d; border-radius: 8px; padding: 14px; margin-top: 14px;
+            max-height: 350px; overflow-y: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12px; line-height: 1.6; white-space: pre-wrap; border: 1px solid #1e1e3a;
+        }
         .output .success { color: #34d399; }
         .output .error { color: #f87171; }
         .output .info { color: #60a5fa; }
+        .output .muted { color: #6b7280; }
 
-        .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
-        .tab { padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; background: #0f0f1a; border: 1px solid #2a2a4a; color: #888; }
-        .tab.active { background: #7c3aed; border-color: #7c3aed; color: white; }
+        /* Table */
+        .table-wrap { overflow-x: auto; margin-top: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px 12px; border-bottom: 1px solid #1e1e3a; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 10px 12px; border-bottom: 1px solid #111125; }
 
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; }
         .badge-green { background: #065f4622; color: #34d399; border: 1px solid #34d39933; }
         .badge-yellow { background: #6b4a0e22; color: #fbbf24; border: 1px solid #fbbf2433; }
         .badge-red { background: #5f0e0e22; color: #f87171; border: 1px solid #f8717133; }
+        .badge-blue { background: #1e3a5f22; color: #60a5fa; border: 1px solid #60a5fa33; }
+        .badge-cyan { background: #065f5f22; color: #22d3ee; border: 1px solid #22d3ee33; }
 
-        .log-area { margin-top: 20px; }
-        .log-area h4 { color: #888; font-size: 13px; margin-bottom: 8px; }
-        .log-entry { padding: 4px 0; border-bottom: 1px solid #1a1a2e; font-size: 12px; font-family: monospace; }
-        .log-entry strong { color: #a78bfa; }
+        .toast {
+            position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: 10px;
+            background: #0d0d1a; border: 1px solid #1e1e3a; color: #e2e8f0; font-size: 13px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 1000;
+            transform: translateY(100px); opacity: 0; transition: all 0.3s ease;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { border-color: #34d39933; }
+        .toast.error { border-color: #f8717133; }
+
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #1e1e3a; border-top-color: #7c3aed; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1e1e3a; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2a2a4a; }
+
+        .section-title { 
+            font-size: 16px; font-weight: 600; color: #e2e8f0; margin: 28px 0 16px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(to right, #1e1e3a, transparent); }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Attendance Service</h1>
-            <p>API Tester - Minimalist Interface</p>
-            <div class="api-url">
-                <input id="baseUrl" value="https://attendance-api-production.up.railway.app" placeholder="API Base URL">
-                <button class="btn btn-outline" onclick="fetchData('GET', '/api/AttendanceRecords', 'output1')">Test Connection</button>
+        <!-- Header -->
+        <div class="app-header">
+            <div>
+                <h1>Attendance Service <span>HR Integrated</span></h1>
             </div>
-        </header>
+            <div class="header-actions">
+                <span class="status-badge online" id="connectionStatus">● Connected</span>
+            </div>
+        </div>
 
-        <div class="grid">
+        <!-- API URL -->
+        <div class="api-bar">
+            <label>API</label>
+            <input id="baseUrl" value="https://attendanceapi-production-0e83.up.railway.app" 
+                   placeholder="https://your-api.up.railway.app">
+            <button class="btn btn-primary" onclick="testConnection()">Test</button>
+            <button class="btn btn-outline btn-sm" onclick="syncHRCore()">Sync HRCore</button>
+        </div>
+
+        <!-- Dashboard Stats -->
+        <div class="section-title">Dashboard</div>
+        <div class="grid grid-4" id="dashboardStats">
+            <div class="stat-card"><div class="label">Total Records</div><div class="value purple" id="statTotal">—</div></div>
+            <div class="stat-card"><div class="label">Present</div><div class="value green" id="statPresent">—</div></div>
+            <div class="stat-card"><div class="label">Late</div><div class="value yellow" id="statLate">—</div></div>
+            <div class="stat-card"><div class="label">Absent</div><div class="value red" id="statAbsent">—</div></div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-2">
+            <!-- Attendance -->
             <div class="card">
-                <div class="card-header"><h3>Attendance Records</h3></div>
+                <div class="card-header">
+                    <h3>Attendance Records</h3>
+                    <button class="btn btn-sm btn-outline" onclick="refreshAttendance()">Refresh</button>
+                </div>
                 <div class="card-body">
                     <div class="tabs">
-                        <div class="tab active" onclick="switchTab(this, 'attendance-checkin')">Check In</div>
-                        <div class="tab" onclick="switchTab(this, 'attendance-list')">List</div>
+                        <div class="tab active" onclick="switchTab(this, 'att-checkin')">Check In/Out</div>
+                        <div class="tab" onclick="switchTab(this, 'att-list')">History</div>
+                        <div class="tab" onclick="switchTab(this, 'att-by-emp')">By Employee</div>
                     </div>
-                    <div id="attendance-checkin">
+
+                    <div id="att-checkin">
                         <div class="form-group">
-                            <label>Employee ID</label>
-                            <input id="checkin-emp" value="00000000-0000-0000-0000-000000000001" placeholder="Guid">
+                            <label>Employee</label>
+                            <select id="checkin-emp"></select>
                         </div>
-                        <button class="btn btn-success" onclick="checkIn()">Check In</button>
-                        <div id="output-checkin" class="output">Click to check in...</div>
+                        <div class="form-row">
+                            <button class="btn btn-success btn-lg" onclick="checkIn()" style="flex:1">Check In</button>
+                            <button class="btn btn-warning btn-lg" onclick="checkOut()" style="flex:1">Check Out</button>
+                        </div>
+                        <div id="output-checkin" class="output muted">Select employee and check in/out...</div>
                     </div>
-                    <div id="attendance-list" style="display:none">
+
+                    <div id="att-list" style="display:none">
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Employee ID (optional)</label>
-                                <input id="att-list-emp" placeholder="Guid">
+                                <label>From</label>
+                                <input id="att-from" type="date">
                             </div>
                             <div class="form-group">
-                                <label>Status</label>
-                                <select id="att-list-status">
-                                    <option value="">All</option>
-                                    <option>Present</option>
-                                    <option>Late</option>
-                                    <option>Absent</option>
-                                    <option>HalfDay</option>
-                                </select>
+                                <label>To</label>
+                                <input id="att-to" type="date">
                             </div>
                         </div>
-                        <button class="btn btn-primary" onclick="listAttendance()">Get Records</button>
-                        <div id="output-att-list" class="output">Click to fetch...</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select id="att-status">
+                                    <option value="">All</option>
+                                    <option>Present</option><option>Late</option><option>Absent</option><option>HalfDay</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-primary" onclick="listAttendance()" style="width:100%">Search</button>
+                            </div>
+                        </div>
+                        <div id="output-att-list" class="output muted">Click search...</div>
+                    </div>
+
+                    <div id="att-by-emp" style="display:none">
+                        <div class="form-group">
+                            <label>Employee</label>
+                            <select id="att-emp-select"></select>
+                        </div>
+                        <button class="btn btn-primary" onclick="getEmployeeAttendance()">View History</button>
+                        <div id="output-att-emp" class="output muted">Select employee...</div>
                     </div>
                 </div>
             </div>
 
+            <!-- Leave Requests -->
             <div class="card">
-                <div class="card-header"><h3>Leave Requests</h3></div>
+                <div class="card-header">
+                    <h3>Leave Requests</h3>
+                    <button class="btn btn-sm btn-outline" onclick="refreshLeaves()">Refresh</button>
+                </div>
                 <div class="card-body">
                     <div class="tabs">
                         <div class="tab active" onclick="switchTab(this, 'leave-create')">Create</div>
@@ -125,62 +258,55 @@
                     </div>
                     <div id="leave-create">
                         <div class="form-group">
-                            <label>Employee ID</label>
-                            <input id="leave-emp" value="00000000-0000-0000-0000-000000000001">
+                            <label>Employee</label>
+                            <select id="leave-emp"></select>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Type</label>
                                 <select id="leave-type">
-                                    <option>Annual</option>
-                                    <option>Sick</option>
-                                    <option>Personal</option>
-                                    <option>Unpaid</option>
+                                    <option>Annual</option><option>Sick</option><option>Personal</option>
+                                    <option>Unpaid</option><option>Maternity</option><option>Bereavement</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Reason</label>
-                                <input id="leave-reason" placeholder="Reason">
+                                <input id="leave-reason" placeholder="Optional reason">
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Start Date</label>
-                                <input id="leave-start" type="date">
-                            </div>
-                            <div class="form-group">
-                                <label>End Date</label>
-                                <input id="leave-end" type="date">
-                            </div>
+                            <div class="form-group"><label>Start</label><input id="leave-start" type="date"></div>
+                            <div class="form-group"><label>End</label><input id="leave-end" type="date"></div>
                         </div>
-                        <button class="btn btn-success" onclick="createLeave()">Submit Leave</button>
-                        <div id="output-leave" class="output">Fill form and submit...</div>
+                        <button class="btn btn-success" onclick="createLeave()">Submit Leave Request</button>
+                        <div id="output-leave" class="output muted">Fill form...</div>
                     </div>
                     <div id="leave-list" style="display:none">
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Employee ID</label>
-                                <input id="leave-list-emp" placeholder="Guid">
+                                <label>Employee</label>
+                                <select id="leave-filter-emp"><option value="">All</option></select>
                             </div>
                             <div class="form-group">
                                 <label>Status</label>
-                                <select id="leave-list-status">
+                                <select id="leave-filter-status">
                                     <option value="">All</option>
-                                    <option>Pending</option>
-                                    <option>Approved</option>
-                                    <option>Rejected</option>
-                                    <option>Cancelled</option>
+                                    <option>Pending</option><option>Approved</option><option>Rejected</option><option>Cancelled</option>
                                 </select>
                             </div>
                         </div>
-                        <button class="btn btn-primary" onclick="listLeaves()">Get Requests</button>
-                        <div id="output-leave-list" class="output">Click to fetch...</div>
+                        <button class="btn btn-primary" onclick="listLeaves()">Search</button>
+                        <div id="output-leave-list" class="output muted">Click search...</div>
                     </div>
                 </div>
             </div>
 
+            <!-- Overtime -->
             <div class="card">
-                <div class="card-header"><h3>Overtime Records</h3></div>
+                <div class="card-header">
+                    <h3>Overtime Records</h3>
+                    <button class="btn btn-sm btn-outline" onclick="refreshOvertime()">Refresh</button>
+                </div>
                 <div class="card-body">
                     <div class="tabs">
                         <div class="tab active" onclick="switchTab(this, 'ot-create')">Create</div>
@@ -188,238 +314,384 @@
                     </div>
                     <div id="ot-create">
                         <div class="form-group">
-                            <label>Employee ID</label>
-                            <input id="ot-emp" value="00000000-0000-0000-0000-000000000001">
+                            <label>Employee</label>
+                            <select id="ot-emp"></select>
                         </div>
-                        <div class="form-group">
-                            <label>Date</label>
-                            <input id="ot-date" type="date">
-                        </div>
+                        <div class="form-group"><label>Date</label><input id="ot-date" type="date"></div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Start Time</label>
-                                <input id="ot-start" type="datetime-local">
-                            </div>
-                            <div class="form-group">
-                                <label>End Time</label>
-                                <input id="ot-end" type="datetime-local">
-                            </div>
+                            <div class="form-group"><label>Start</label><input id="ot-start" type="datetime-local"></div>
+                            <div class="form-group"><label>End</label><input id="ot-end" type="datetime-local"></div>
                         </div>
-                        <div class="form-group">
-                            <label>Reason</label>
-                            <input id="ot-reason" placeholder="Reason">
-                        </div>
-                        <button class="btn btn-success" onclick="createOvertime()">Submit Overtime</button>
-                        <div id="output-ot" class="output">Fill form and submit...</div>
+                        <div class="form-group"><label>Reason</label><input id="ot-reason" placeholder="Reason"></div>
+                        <button class="btn btn-success" onclick="createOvertime()">Record Overtime</button>
+                        <div id="output-ot" class="output muted">Fill form...</div>
                     </div>
                     <div id="ot-list" style="display:none">
                         <div class="form-group">
-                            <label>Employee ID (optional)</label>
-                            <input id="ot-list-emp" placeholder="Guid">
+                            <label>Employee</label>
+                            <select id="ot-filter-emp"><option value="">All</option></select>
                         </div>
-                        <button class="btn btn-primary" onclick="listOvertime()">Get Records</button>
-                        <div id="output-ot-list" class="output">Click to fetch...</div>
+                        <button class="btn btn-primary" onclick="listOvertime()">Search</button>
+                        <div id="output-ot-list" class="output muted">Click search...</div>
                     </div>
                 </div>
             </div>
 
+            <!-- Holidays -->
             <div class="card">
-                <div class="card-header"><h3>Holidays</h3></div>
+                <div class="card-header">
+                    <h3>Holidays</h3>
+                    <button class="btn btn-sm btn-outline" onclick="refreshHolidays()">Refresh</button>
+                </div>
                 <div class="card-body">
                     <div class="tabs">
                         <div class="tab active" onclick="switchTab(this, 'hol-create')">Create</div>
                         <div class="tab" onclick="switchTab(this, 'hol-list')">List</div>
                     </div>
                     <div id="hol-create">
-                        <div class="form-group">
-                            <label>Holiday Name</label>
-                            <input id="hol-name" placeholder="e.g. Tet Holiday">
-                        </div>
+                        <div class="form-group"><label>Holiday Name</label><input id="hol-name" placeholder="e.g. Tet Holiday"></div>
                         <div class="form-row">
+                            <div class="form-group"><label>Date</label><input id="hol-date" type="date"></div>
                             <div class="form-group">
-                                <label>Date</label>
-                                <input id="hol-date" type="date">
-                            </div>
-                            <div class="form-group">
-                                <label>
+                                <label style="margin-bottom:12px">&nbsp;</label>
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                                     <input id="hol-recurring" type="checkbox"> Recurring yearly
                                 </label>
                             </div>
                         </div>
                         <button class="btn btn-success" onclick="createHoliday()">Add Holiday</button>
-                        <div id="output-hol" class="output">Fill form and submit...</div>
+                        <div id="output-hol" class="output muted">Fill form...</div>
                     </div>
                     <div id="hol-list" style="display:none">
-                        <button class="btn btn-primary" onclick="listHolidays()">Get Holidays</button>
-                        <div id="output-hol-list" class="output">Click to fetch...</div>
+                        <button class="btn btn-primary" onclick="listHolidays()">Get All Holidays</button>
+                        <div id="output-hol-list" class="output muted">Click to fetch...</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="log-area">
-            <h4>Activity Log</h4>
-            <div id="logOutput">
-                <div class="log-entry">System ready. Set your API URL and start testing.</div>
+        <!-- Summary by Employee -->
+        <div class="section-title">Attendance Summary by Employee</div>
+        <div class="card">
+            <div class="card-body">
+                <div class="form-row-3">
+                    <div class="form-group"><label>From</label><input id="summary-from" type="date"></div>
+                    <div class="form-group"><label>To</label><input id="summary-to" type="date"></div>
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary" onclick="getSummaryByEmployee()" style="width:100%">Generate Report</button>
+                    </div>
+                </div>
+                <div id="output-summary" class="output muted">Click generate...</div>
             </div>
         </div>
     </div>
 
+    <div class="toast" id="toast"></div>
+
     <script>
-        function getBase() {
-            return document.getElementById('baseUrl').value.replace(/\/+$/, '');
-        }
+        // ─── Utils ──────────────────────────────────────────────
+        function getBase() { return document.getElementById('baseUrl').value.replace(/\/+$/, ''); }
 
-        function addLog(msg, type = 'info') {
-            const el = document.getElementById('logOutput');
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            const colors = { info: '#60a5fa', success: '#34d399', error: '#f87171' };
-            entry.innerHTML = `<span style="color:${colors[type] || '#888'}">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
-            el.prepend(entry);
-            if (el.children.length > 50) el.removeChild(el.lastChild);
-        }
-
-        function showOutput(id, data) {
-            const el = document.getElementById(id);
-            if (typeof data === 'object') {
-                el.innerHTML = `<span class="success">${JSON.stringify(data, null, 2)}</span>`;
-            } else {
-                el.innerHTML = data;
-            }
-        }
-
-        async function apiCall(method, url, body = null) {
-            const base = getBase();
-            const opts = {
-                method,
-                headers: { 'Content-Type': 'application/json' }
-            };
-            if (body) opts.body = JSON.stringify(body);
-
-            addLog(`<strong>${method}</strong> ${url.replace('/api/', '')}`, 'info');
-
-            try {
-                const res = await fetch(base + url, opts);
-                const text = await res.text();
-                let data;
-                try { data = JSON.parse(text); } catch { data = text; }
-
-                if (res.ok) {
-                    addLog(`<strong>${method}</strong> ${url} → ${res.status}`, 'success');
-                } else {
-                    addLog(`<strong>${method}</strong> ${url} → ${res.status} ${res.statusText}`, 'error');
-                }
-                return data;
-            } catch (e) {
-                addLog(`<strong>${method}</strong> ${url} → Network Error: ${e.message}`, 'error');
-                return { error: e.message };
-            }
+        function toast(msg, type = 'success') {
+            const el = document.getElementById('toast');
+            el.textContent = msg; el.className = `toast ${type} show`;
+            setTimeout(() => el.classList.remove('show'), 3500);
         }
 
         function switchTab(el, tabId) {
             const parent = el.closest('.card-body');
             parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
-            parent.querySelectorAll('[id]').forEach(e => {
-                if (e.id.startsWith('attendance-') || e.id.startsWith('leave-') || e.id.startsWith('ot-') || e.id.startsWith('hol-')) {
+            const targets = parent.querySelectorAll('[id]');
+            const groupPrefix = tabId.split('-')[0] + '-';
+            targets.forEach(e => {
+                if (e.id.startsWith('att-') || e.id.startsWith('leave-') || e.id.startsWith('ot-') || e.id.startsWith('hol-')) {
                     e.style.display = 'none';
                 }
             });
-            const target = document.getElementById(tabId);
-            if (target) target.style.display = 'block';
+            document.getElementById(tabId).style.display = 'block';
         }
 
+        function showOutput(id, data) {
+            const el = document.getElementById(id);
+            if (typeof data === 'object' && data !== null) {
+                el.innerHTML = `<span class="success">${JSON.stringify(data, null, 2)}</span>`;
+            } else {
+                el.innerHTML = data || '<span class="muted">No data</span>';
+            }
+        }
+
+        // ─── API ────────────────────────────────────────────────
+        async function api(method, url, body = null) {
+            const base = getBase();
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            try {
+                const res = await fetch(base + url, opts);
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch { data = text; }
+                if (!res.ok) throw { status: res.status, data };
+                return data;
+            } catch (e) {
+                if (e.data) throw e;
+                throw { status: 0, data: { message: e.message } };
+            }
+        }
+
+        async function testConnection() {
+            try {
+                const data = await api('GET', '/api/AttendanceRecords?$top=1');
+                document.getElementById('connectionStatus').textContent = '● Connected';
+                document.getElementById('connectionStatus').className = 'status-badge online';
+                toast('Connected successfully', 'success');
+                loadDashboard();
+                loadEmployees();
+            } catch (e) {
+                document.getElementById('connectionStatus').textContent = '● Disconnected';
+                document.getElementById('connectionStatus').className = 'status-badge offline';
+                toast('Connection failed: ' + (e.data?.message || e.message), 'error');
+            }
+        }
+
+        // ─── Employees ───────────────────────────────────────────
+        async function loadEmployees() {
+            try {
+                const employees = await api('GET', '/api/HRCore/employees');
+                const selects = ['checkin-emp', 'att-emp-select', 'leave-emp', 'leave-filter-emp', 'ot-emp', 'ot-filter-emp'];
+                selects.forEach(id => {
+                    const sel = document.getElementById(id);
+                    if (!sel) return;
+                    sel.innerHTML = '<option value="">Select employee...</option>';
+                    if (Array.isArray(employees)) {
+                        employees.forEach(e => {
+                            sel.innerHTML += `<option value="${e.id}">[${e.employeeCode || 'N/A'}] ${e.fullName}${e.departmentName ? ' - ' + e.departmentName : ''}</option>`;
+                        });
+                    }
+                });
+            } catch (e) {
+                console.log('Employee load failed:', e.message);
+            }
+        }
+
+        async function syncHRCore() {
+            const btn = event.target; btn.disabled = true; btn.textContent = 'Syncing...';
+            try {
+                const res = await api('POST', '/api/HRCore/sync');
+                toast(`Synced ${res.count} employees`, 'success');
+                loadEmployees();
+                showOutput('output-checkin', res);
+            } catch (e) {
+                toast('Sync failed: ' + (e.data?.message || e.message), 'error');
+            }
+            btn.disabled = false; btn.textContent = 'Sync HRCore';
+        }
+
+        // ─── Dashboard ──────────────────────────────────────────
+        async function loadDashboard() {
+            try {
+                const data = await api('GET', '/api/AttendanceRecords/summary');
+                document.getElementById('statTotal').textContent = data.totalRecords ?? 0;
+                document.getElementById('statPresent').textContent = data.present ?? 0;
+                document.getElementById('statLate').textContent = data.late ?? 0;
+                document.getElementById('statAbsent').textContent = data.absent ?? 0;
+            } catch (e) { /* ignore */ }
+        }
+
+        // ─── Attendance ─────────────────────────────────────────
         async function checkIn() {
             const empId = document.getElementById('checkin-emp').value;
-            const data = await apiCall('POST', '/api/AttendanceRecords/check-in', {
-                employeeId: empId,
-                checkIn: new Date().toISOString()
-            });
-            showOutput('output-checkin', data);
+            if (!empId) return toast('Select an employee', 'error');
+            try {
+                const data = await api('POST', '/api/AttendanceRecords/check-in', {
+                    employeeId: empId, checkIn: new Date().toISOString()
+                });
+                showOutput('output-checkin', data);
+                toast(`Check-in: ${data.employeeName} - ${data.status}`, 'success');
+                loadDashboard();
+            } catch (e) {
+                showOutput('output-checkin', e.data || e.message);
+                toast(e.data?.message || 'Check-in failed', 'error');
+            }
+        }
+
+        async function checkOut() {
+            const empId = document.getElementById('checkin-emp').value;
+            if (!empId) return toast('Select an employee', 'error');
+            try {
+                const today = await api('GET', `/api/AttendanceRecords/employee/${empId}/today`);
+                const data = await api('PATCH', `/api/AttendanceRecords/${today.id}/check-out`, {
+                    checkOut: new Date().toISOString()
+                });
+                showOutput('output-checkin', data);
+                toast(`Check-out: ${data.employeeName} - ${data.workedHours}h`, 'success');
+                loadDashboard();
+            } catch (e) {
+                showOutput('output-checkin', e.data || e.message);
+                toast(e.data?.message || 'Check-out failed', 'error');
+            }
         }
 
         async function listAttendance() {
-            const empId = document.getElementById('att-list-emp').value;
-            const status = document.getElementById('att-list-status').value;
-            let url = '/api/AttendanceRecords';
             const params = [];
-            if (empId) params.push(`employeeId=${empId}`);
+            const from = document.getElementById('att-from').value;
+            const to = document.getElementById('att-to').value;
+            const status = document.getElementById('att-status').value;
+            if (from) params.push(`fromDate=${new Date(from).toISOString()}`);
+            if (to) params.push(`toDate=${new Date(to).toISOString()}`);
             if (status) params.push(`status=${status}`);
-            if (params.length) url += '?' + params.join('&');
-            const data = await apiCall('GET', url);
-            showOutput('output-att-list', data);
+            const qs = params.length ? '?' + params.join('&') : '';
+            try {
+                const data = await api('GET', '/api/AttendanceRecords' + qs);
+                showOutput('output-att-list', data);
+            } catch (e) {
+                showOutput('output-att-list', e.data || e.message);
+            }
         }
 
+        async function getEmployeeAttendance() {
+            const empId = document.getElementById('att-emp-select').value;
+            if (!empId) return toast('Select an employee', 'error');
+            try {
+                const data = await api('GET', `/api/AttendanceRecords/employee/${empId}/history`);
+                showOutput('output-att-emp', data);
+            } catch (e) {
+                showOutput('output-att-emp', e.data || e.message);
+            }
+        }
+
+        function refreshAttendance() {
+            const tab = document.querySelector('#att-list .tab.active') ? 'att-list' : 'att-checkin';
+            if (tab === 'att-list') listAttendance();
+        }
+
+        // ─── Leave ──────────────────────────────────────────────
         async function createLeave() {
             const empId = document.getElementById('leave-emp').value;
+            if (!empId) return toast('Select an employee', 'error');
             const type = document.getElementById('leave-type').value;
-            const reason = document.getElementById('leave-reason').value;
             const start = document.getElementById('leave-start').value;
             const end = document.getElementById('leave-end').value;
-            const data = await apiCall('POST', '/api/LeaveRequests', {
-                employeeId: empId,
-                leaveType: type,
-                startDate: start ? new Date(start).toISOString() : new Date().toISOString(),
-                endDate: end ? new Date(end).toISOString() : new Date().toISOString(),
-                reason: reason || null
-            });
-            showOutput('output-leave', data);
+            const reason = document.getElementById('leave-reason').value;
+            if (!start || !end) return toast('Select start and end dates', 'error');
+            try {
+                const data = await api('POST', '/api/LeaveRequests', {
+                    employeeId: empId, leaveType: type,
+                    startDate: new Date(start).toISOString(),
+                    endDate: new Date(end).toISOString(),
+                    reason: reason || null
+                });
+                showOutput('output-leave', data);
+                toast('Leave request submitted', 'success');
+            } catch (e) {
+                showOutput('output-leave', e.data || e.message);
+                toast(e.data?.message || 'Failed', 'error');
+            }
         }
 
         async function listLeaves() {
-            const empId = document.getElementById('leave-list-emp').value;
-            const status = document.getElementById('leave-list-status').value;
-            let url = '/api/LeaveRequests';
             const params = [];
-            if (empId) params.push(`employeeId=${empId}`);
+            const emp = document.getElementById('leave-filter-emp').value;
+            const status = document.getElementById('leave-filter-status').value;
+            if (emp) params.push(`employeeId=${emp}`);
             if (status) params.push(`status=${status}`);
-            if (params.length) url += '?' + params.join('&');
-            const data = await apiCall('GET', url);
-            showOutput('output-leave-list', data);
+            const qs = params.length ? '?' + params.join('&') : '';
+            try {
+                const data = await api('GET', '/api/LeaveRequests' + qs);
+                showOutput('output-leave-list', data);
+            } catch (e) {
+                showOutput('output-leave-list', e.data || e.message);
+            }
         }
 
+        function refreshLeaves() { listLeaves(); }
+
+        // ─── Overtime ───────────────────────────────────────────
         async function createOvertime() {
             const empId = document.getElementById('ot-emp').value;
+            if (!empId) return toast('Select an employee', 'error');
             const date = document.getElementById('ot-date').value;
             const start = document.getElementById('ot-start').value;
             const end = document.getElementById('ot-end').value;
             const reason = document.getElementById('ot-reason').value;
             const d = date ? new Date(date) : new Date();
-            const data = await apiCall('POST', '/api/OvertimeRecords', {
-                employeeId: empId,
-                date: d.toISOString(),
-                startTime: start ? new Date(start).toISOString() : new Date().toISOString(),
-                endTime: end ? new Date(end).toISOString() : new Date(Date.now() + 7200000).toISOString(),
-                reason: reason || null
-            });
-            showOutput('output-ot', data);
+            try {
+                const data = await api('POST', '/api/OvertimeRecords', {
+                    employeeId: empId, date: d.toISOString(),
+                    startTime: start ? new Date(start).toISOString() : new Date().toISOString(),
+                    endTime: end ? new Date(end).toISOString() : new Date(Date.now() + 7200000).toISOString(),
+                    reason: reason || null
+                });
+                showOutput('output-ot', data);
+                toast('Overtime recorded', 'success');
+            } catch (e) {
+                showOutput('output-ot', e.data || e.message);
+                toast(e.data?.message || 'Failed', 'error');
+            }
         }
 
         async function listOvertime() {
-            const empId = document.getElementById('ot-list-emp').value;
+            const emp = document.getElementById('ot-filter-emp').value;
             let url = '/api/OvertimeRecords';
-            if (empId) url += `?employeeId=${empId}`;
-            const data = await apiCall('GET', url);
-            showOutput('output-ot-list', data);
+            if (emp) url += `?employeeId=${emp}`;
+            try {
+                const data = await api('GET', url);
+                showOutput('output-ot-list', data);
+            } catch (e) {
+                showOutput('output-ot-list', e.data || e.message);
+            }
         }
 
+        function refreshOvertime() { listOvertime(); }
+
+        // ─── Holidays ───────────────────────────────────────────
         async function createHoliday() {
             const name = document.getElementById('hol-name').value;
             const date = document.getElementById('hol-date').value;
             const recurring = document.getElementById('hol-recurring').checked;
-            const data = await apiCall('POST', '/api/Holidays', {
-                holidayName: name || 'New Holiday',
-                date: date ? new Date(date).toISOString() : new Date().toISOString(),
-                isRecurring: recurring
-            });
-            showOutput('output-hol', data);
+            if (!name || !date) return toast('Fill name and date', 'error');
+            try {
+                const data = await api('POST', '/api/Holidays', {
+                    holidayName: name, date: new Date(date).toISOString(), isRecurring: recurring
+                });
+                showOutput('output-hol', data);
+                toast('Holiday added', 'success');
+            } catch (e) {
+                showOutput('output-hol', e.data || e.message);
+                toast('Failed', 'error');
+            }
         }
 
         async function listHolidays() {
-            const data = await apiCall('GET', '/api/Holidays');
-            showOutput('output-hol-list', data);
+            try {
+                const data = await api('GET', '/api/Holidays');
+                showOutput('output-hol-list', data);
+            } catch (e) {
+                showOutput('output-hol-list', e.data || e.message);
+            }
         }
+
+        function refreshHolidays() { listHolidays(); }
+
+        // ─── Summary ────────────────────────────────────────────
+        async function getSummaryByEmployee() {
+            const params = [];
+            const from = document.getElementById('summary-from').value;
+            const to = document.getElementById('summary-to').value;
+            if (from) params.push(`fromDate=${new Date(from).toISOString()}`);
+            if (to) params.push(`toDate=${new Date(to).toISOString()}`);
+            const qs = params.length ? '?' + params.join('&') : '';
+            try {
+                const data = await api('GET', '/api/AttendanceRecords/summary/by-employee' + qs);
+                showOutput('output-summary', data);
+            } catch (e) {
+                showOutput('output-summary', e.data || e.message);
+            }
+        }
+
+        // ─── Init ───────────────────────────────────────────────
+        testConnection();
     </script>
 </body>
 </html>

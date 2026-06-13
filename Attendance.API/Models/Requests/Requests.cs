@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Mvc;
+using Attendance.API.Models.Requests;
+
 namespace Attendance.API.Models.Requests;
 
 public class CheckInRequest
@@ -10,6 +13,14 @@ public class CheckInRequest
 public class CheckOutRequest
 {
     public DateTime CheckOut { get; set; }
+    public string? Note { get; set; }
+}
+
+public class UpdateAttendanceRequest
+{
+    public DateTime? CheckIn { get; set; }
+    public DateTime? CheckOut { get; set; }
+    public string? Status { get; set; }
     public string? Note { get; set; }
 }
 
