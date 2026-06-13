@@ -1,5 +1,18 @@
 namespace Attendance.API.Models.DTOs;
 
+public class ShiftDto
+{
+    public Guid Id { get; set; }
+    public string ShiftCode { get; set; } = string.Empty;
+    public string ShiftName { get; set; } = string.Empty;
+    public string StartTime { get; set; } = string.Empty;
+    public string EndTime { get; set; } = string.Empty;
+    public double AllowedLateMinutes { get; set; }
+    public string? Description { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 public class AttendanceRecordDto
 {
     public Guid Id { get; set; }
@@ -8,6 +21,8 @@ public class AttendanceRecordDto
     public string? EmployeeName { get; set; }
     public string? DepartmentName { get; set; }
     public DateTime Date { get; set; }
+    public Guid? ShiftId { get; set; }
+    public string? ShiftName { get; set; }
     public DateTime? CheckIn { get; set; }
     public DateTime? CheckOut { get; set; }
     public string Status { get; set; } = string.Empty;

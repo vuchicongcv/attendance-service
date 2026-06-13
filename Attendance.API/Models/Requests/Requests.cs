@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Attendance.API.Models.Requests;
 
 namespace Attendance.API.Models.Requests;
 
@@ -7,6 +6,7 @@ public class CheckInRequest
 {
     public Guid EmployeeId { get; set; }
     public DateTime CheckIn { get; set; }
+    public Guid? ShiftId { get; set; }
     public string? Note { get; set; }
 }
 
@@ -18,10 +18,31 @@ public class CheckOutRequest
 
 public class UpdateAttendanceRequest
 {
+    public Guid? ShiftId { get; set; }
     public DateTime? CheckIn { get; set; }
     public DateTime? CheckOut { get; set; }
     public string? Status { get; set; }
     public string? Note { get; set; }
+}
+
+public class CreateShiftRequest
+{
+    public string ShiftCode { get; set; } = string.Empty;
+    public string ShiftName { get; set; } = string.Empty;
+    public string StartTime { get; set; } = "08:00";
+    public string EndTime { get; set; } = "17:00";
+    public double AllowedLateMinutes { get; set; } = 30;
+    public string? Description { get; set; }
+}
+
+public class UpdateShiftRequest
+{
+    public string? ShiftName { get; set; }
+    public string? StartTime { get; set; }
+    public string? EndTime { get; set; }
+    public double? AllowedLateMinutes { get; set; }
+    public string? Description { get; set; }
+    public bool? IsActive { get; set; }
 }
 
 public class CreateLeaveRequest

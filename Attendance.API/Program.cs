@@ -17,6 +17,8 @@ builder.Services.AddHttpClient<HRCoreService>(client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+builder.Services.AddSingleton<AttendanceEventService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -35,20 +37,19 @@ using (var scope = app.Services.CreateScope())
     try
     {
         db.Database.ExecuteSqlRaw(@"
-            CREATE TABLE IF NOT EXISTS ""EmployeeInfo"" (
+            CREATE TABLE IF NOT EXISTS ""Shifts"" (
                 ""Id"" UUID PRIMARY KEY,
-                ""EmployeeCode"" TEXT NOT NULL,
-                ""FullName"" TEXT NOT NULL,
-                ""Email"" TEXT NULL,
-                ""DepartmentId"" UUID NULL,
-                ""DepartmentName"" TEXT NULL,
-                ""PositionId"" UUID NULL,
-                ""PositionName"" TEXT NULL,
+                ""ShiftCode"" TEXT NOT NULL,
+                ""ShiftName"" TEXT NOT NULL,
+                ""StartTime"" INTERVAL NOT NULL,
+                ""EndTime"" INTERVAL NOT NULL,
+                ""AllowedLateMinutes"" DOUBLE PRECISION NOT NULL DEFAULT 30,
+                ""Description"" TEXT NULL,
                 ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
                 ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT NOW(),
                 ""UpdatedAt"" TIMESTAMP NULL
             );
-            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_EmployeeInfo_EmployeeCode"" ON ""EmployeeInfo"" (""EmployeeCode"");
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Shifts_ShiftCode"" ON ""Shifts"" (""ShiftCode"");
         ");
     }
     catch { }

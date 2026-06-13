@@ -14,11 +14,13 @@ public class AttendanceRecordsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly HRCoreService _hr;
+    private readonly AttendanceEventService _events;
 
-    public AttendanceRecordsController(AppDbContext db, HRCoreService hr)
+    public AttendanceRecordsController(AppDbContext db, HRCoreService hr, AttendanceEventService events)
     {
         _db = db;
         _hr = hr;
+        _events = events;
     }
 
     [HttpGet]
@@ -30,19 +32,17 @@ public class AttendanceRecordsController : ControllerBase
     {
         var query = _db.AttendanceRecords.AsQueryable();
 
-        if (employeeId.HasValue)
-            query = query.Where(a => a.EmployeeId == employeeId.Value);
-        if (fromDate.HasValue)
-            query = query.Where(a => a.Date >= fromDate.Value);
-        if (toDate.HasValue)
-            query = query.Where(a => a.Date <= toDate.Value);
+        if (employeeId.HasValue) query = query.Where(a => a.EmployeeId == employeeId.Value);
+        if (fromDate.HasValue) query = query.Where(a => a.Date >= fromDate.Value);
+        if (toDate.HasValue) query = query.Where(a => a.Date <= toDate.Value);
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<AttendanceStatus>(status, true, out var statusEnum))
             query = query.Where(a => a.Status == statusEnum);
 
         var records = await query.OrderByDescending(a => a.Date).ThenByDescending(a => a.CreatedAt).ToListAsync();
         var empMap = await _hr.GetEmployeeMapAsync();
+        var shifts = await _db.Shifts.ToDictionaryAsync(s => s.Id);
 
-        return records.Select(r => MapToDto(r, empMap.GetValueOrDefault(r.EmployeeId))).ToList();
+        return records.Select(r => MapToDto(r, empMap.GetValueOrDefault(r.EmployeeId), shifts.GetValueOrDefault(r.ShiftId ?? Guid.Empty))).ToList();
     }
 
     [HttpGet("{id}")]
@@ -52,7 +52,8 @@ public class AttendanceRecordsController : ControllerBase
         if (record == null) return NotFound();
 
         var emp = await _hr.GetEmployeeAsync(record.EmployeeId);
-        return MapToDto(record, emp);
+        var shift = record.ShiftId.HasValue ? await _db.Shifts.FindAsync(record.ShiftId.Value) : null;
+        return MapToDto(record, emp, shift);
     }
 
     [HttpGet("employee/{employeeId}/today")]
@@ -64,7 +65,8 @@ public class AttendanceRecordsController : ControllerBase
         if (record == null) return NotFound();
 
         var emp = await _hr.GetEmployeeAsync(employeeId);
-        return MapToDto(record, emp);
+        var shift = record.ShiftId.HasValue ? await _db.Shifts.FindAsync(record.ShiftId.Value) : null;
+        return MapToDto(record, emp, shift);
     }
 
     [HttpGet("employee/{employeeId}/history")]
@@ -79,8 +81,9 @@ public class AttendanceRecordsController : ControllerBase
 
         var records = await query.OrderByDescending(a => a.Date).ToListAsync();
         var emp = await _hr.GetEmployeeAsync(employeeId);
+        var shifts = await _db.Shifts.ToDictionaryAsync(s => s.Id);
 
-        return records.Select(r => MapToDto(r, emp)).ToList();
+        return records.Select(r => MapToDto(r, emp, shifts.GetValueOrDefault(r.ShiftId ?? Guid.Empty))).ToList();
     }
 
     [HttpPost("check-in")]
@@ -97,8 +100,16 @@ public class AttendanceRecordsController : ControllerBase
         if (existing != null)
             return Conflict(new { message = $"Already checked in at {existing.CheckIn:HH:mm:ss}" });
 
-        var lateThreshold = new TimeSpan(8, 31, 0);
-        var status = request.CheckIn.TimeOfDay > lateThreshold
+        Shift? shift = null;
+        if (request.ShiftId.HasValue)
+            shift = await _db.Shifts.FindAsync(request.ShiftId.Value);
+
+        var lateThreshold = shift != null
+            ? shift.StartTime.Add(TimeSpan.FromMinutes(shift.AllowedLateMinutes))
+            : new TimeSpan(8, 31, 0);
+
+        var checkInTime = request.CheckIn.TimeOfDay;
+        var status = checkInTime > lateThreshold
             ? AttendanceStatus.Late
             : AttendanceStatus.Present;
 
@@ -106,6 +117,7 @@ public class AttendanceRecordsController : ControllerBase
         {
             EmployeeId = request.EmployeeId,
             Date = today,
+            ShiftId = request.ShiftId,
             CheckIn = request.CheckIn,
             Status = status,
             Note = request.Note
@@ -114,7 +126,7 @@ public class AttendanceRecordsController : ControllerBase
         _db.AttendanceRecords.Add(record);
         await _db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, emp));
+        return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, emp, shift));
     }
 
     [HttpPatch("{id}/check-out")]
@@ -127,9 +139,7 @@ public class AttendanceRecordsController : ControllerBase
 
         record.CheckOut = request.CheckOut;
         record.UpdatedAt = DateTime.UtcNow;
-
-        if (request.Note != null)
-            record.Note = request.Note;
+        if (request.Note != null) record.Note = request.Note;
 
         if (record.CheckIn.HasValue)
         {
@@ -141,7 +151,8 @@ public class AttendanceRecordsController : ControllerBase
         await _db.SaveChangesAsync();
 
         var emp = await _hr.GetEmployeeAsync(record.EmployeeId);
-        return MapToDto(record, emp);
+        var shift = record.ShiftId.HasValue ? await _db.Shifts.FindAsync(record.ShiftId.Value) : null;
+        return MapToDto(record, emp, shift);
     }
 
     [HttpPut("{id}")]
@@ -150,21 +161,19 @@ public class AttendanceRecordsController : ControllerBase
         var record = await _db.AttendanceRecords.FindAsync(id);
         if (record == null) return NotFound();
 
+        if (request.ShiftId.HasValue) record.ShiftId = request.ShiftId;
         if (request.CheckIn.HasValue) record.CheckIn = request.CheckIn;
         if (request.CheckOut.HasValue) record.CheckOut = request.CheckOut;
-        if (request.Status != null)
-        {
-            if (Enum.TryParse<AttendanceStatus>(request.Status, true, out var s))
-                record.Status = s;
-        }
-        if (request.Note != null)
-            record.Note = request.Note;
-
+        if (request.Status != null && Enum.TryParse<AttendanceStatus>(request.Status, true, out var s))
+            record.Status = s;
+        if (request.Note != null) record.Note = request.Note;
         record.UpdatedAt = DateTime.UtcNow;
+
         await _db.SaveChangesAsync();
 
         var emp = await _hr.GetEmployeeAsync(record.EmployeeId);
-        return MapToDto(record, emp);
+        var shift = record.ShiftId.HasValue ? await _db.Shifts.FindAsync(record.ShiftId.Value) : null;
+        return MapToDto(record, emp, shift);
     }
 
     [HttpDelete("{id}")]
@@ -172,7 +181,6 @@ public class AttendanceRecordsController : ControllerBase
     {
         var record = await _db.AttendanceRecords.FindAsync(id);
         if (record == null) return NotFound();
-
         _db.AttendanceRecords.Remove(record);
         await _db.SaveChangesAsync();
         return Ok();
@@ -184,13 +192,11 @@ public class AttendanceRecordsController : ControllerBase
         [FromQuery] DateTime? toDate)
     {
         var query = _db.AttendanceRecords.AsQueryable();
-
         var from = fromDate ?? DateTime.UtcNow.AddDays(-30).Date;
         var to = toDate ?? DateTime.UtcNow.Date;
-
         query = query.Where(a => a.Date >= from && a.Date <= to);
-        var records = await query.ToListAsync();
 
+        var records = await query.ToListAsync();
         return new AttendanceSummaryDto
         {
             TotalRecords = records.Count,
@@ -240,7 +246,27 @@ public class AttendanceRecordsController : ControllerBase
         }).OrderByDescending(s => s.TotalDays).ToList();
     }
 
-    private static AttendanceRecordDto MapToDto(AttendanceRecord r, EmployeeInfo? emp) => new()
+    [HttpPost("monthly-close/{year}/{month}")]
+    public async Task<IActionResult> MonthlyClose(int year, int month)
+    {
+        var from = new DateTime(year, month, 1);
+        var to = from.AddMonths(1).AddDays(-1);
+
+        var records = await _db.AttendanceRecords
+            .Where(a => a.Date >= from && a.Date <= to)
+            .ToListAsync();
+
+        await _events.PublishMonthlyClosedAsync(year, month);
+
+        return Ok(new
+        {
+            message = $"Monthly close event published for {year}-{month:D2}",
+            eventName = "attendance.monthly.closed",
+            totalRecords = records.Count
+        });
+    }
+
+    private static AttendanceRecordDto MapToDto(AttendanceRecord r, EmployeeInfo? emp, Shift? shift) => new()
     {
         Id = r.Id,
         EmployeeId = r.EmployeeId,
@@ -248,6 +274,8 @@ public class AttendanceRecordsController : ControllerBase
         EmployeeName = emp?.FullName,
         DepartmentName = emp?.DepartmentName,
         Date = r.Date,
+        ShiftId = r.ShiftId,
+        ShiftName = shift?.ShiftName,
         CheckIn = r.CheckIn,
         CheckOut = r.CheckOut,
         Status = r.Status.ToString(),

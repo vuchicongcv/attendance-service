@@ -21,6 +21,8 @@ public class AttendanceRecord
 
     public DateTime Date { get; set; }
 
+    public Guid? ShiftId { get; set; }
+
     public DateTime? CheckIn { get; set; }
 
     public DateTime? CheckOut { get; set; }
