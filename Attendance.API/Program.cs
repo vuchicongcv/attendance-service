@@ -31,6 +31,27 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS ""EmployeeInfo"" (
+                ""Id"" UUID PRIMARY KEY,
+                ""EmployeeCode"" TEXT NOT NULL,
+                ""FullName"" TEXT NOT NULL,
+                ""Email"" TEXT NULL,
+                ""DepartmentId"" UUID NULL,
+                ""DepartmentName"" TEXT NULL,
+                ""PositionId"" UUID NULL,
+                ""PositionName"" TEXT NULL,
+                ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+                ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT NOW(),
+                ""UpdatedAt"" TIMESTAMP NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_EmployeeInfo_EmployeeCode"" ON ""EmployeeInfo"" (""EmployeeCode"");
+        ");
+    }
+    catch { }
 }
 
 app.UseSwagger();

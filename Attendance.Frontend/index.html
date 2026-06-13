@@ -442,7 +442,7 @@
 
         async function testConnection() {
             try {
-                const data = await api('GET', '/api/AttendanceRecords?$top=1');
+                const data = await api('GET', '/api/AttendanceRecords?fromDate=2024-01-01&toDate=2024-01-02');
                 document.getElementById('connectionStatus').textContent = '● Connected';
                 document.getElementById('connectionStatus').className = 'status-badge online';
                 toast('Connected successfully', 'success');
