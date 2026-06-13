@@ -43,13 +43,10 @@ app.UseExceptionHandler(exceptionHandlerApp =>
 {
     exceptionHandlerApp.Run(async context =>
     {
-        var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
-        var msg = feature?.Error.Message ?? "Unknown error";
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         context.Response.Headers["Access-Control-Allow-Origin"] = "*";
-        var safeMsg = msg.Replace("\"", "'").Replace("\r", "").Replace("\n", "");
-        await context.Response.WriteAsync($"{{\"error\":\"{safeMsg}\"}}");
+        await context.Response.WriteAsync("{\"error\":\"Internal server error\"}");
     });
 });
 
@@ -75,6 +72,10 @@ using (var scope = app.Services.CreateScope())
                 ""UpdatedAt"" TIMESTAMP NULL
             );
             CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Shifts_ShiftCode"" ON ""Shifts"" (""ShiftCode"");
+        ");
+        db.Database.ExecuteSqlRaw(@"
+            ALTER TABLE ""AttendanceRecords"" ADD COLUMN IF NOT EXISTS ""ShiftId"" UUID NULL;
+            CREATE INDEX IF NOT EXISTS ""IX_AttendanceRecords_ShiftId"" ON ""AttendanceRecords"" (""ShiftId"");
         ");
     }
     catch { }
