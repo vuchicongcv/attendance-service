@@ -1,0 +1,9 @@
+.opencode
+bin/
+obj/
+node_modules/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
