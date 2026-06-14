@@ -880,6 +880,7 @@
                     <div class="tabs">
                         <div class="tab active" onclick="switchTab(this, 'leave-create')">Create</div>
                         <div class="tab" onclick="switchTab(this, 'leave-list')">List</div>
+                        <div class="tab" onclick="switchTab(this, 'leave-approve')">Approve</div>
                     </div>
                     <div id="leave-create">
                         <div class="form-group">
@@ -923,6 +924,27 @@
                         <button class="btn btn-primary" onclick="listLeaves()">Search</button>
                         <div id="output-leave-list" class="output"><span class="output-placeholder">Click search...</span></div>
                     </div>
+                    <div id="leave-approve" style="display:none">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Request ID</label>
+                                <input id="leave-approve-id" placeholder="Leave Request UUID">
+                            </div>
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select id="leave-approve-status">
+                                    <option>Approved</option>
+                                    <option>Rejected</option>
+                                    <option>Cancelled</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Rejection Reason</label>
+                            <input id="leave-approve-reason" placeholder="If rejected...">
+                        </div>
+                        <button class="btn btn-warning" onclick="approveLeave()">Submit Review</button>
+                    </div>
                 </div>
             </div>
 
@@ -936,6 +958,7 @@
                     <div class="tabs">
                         <div class="tab active" onclick="switchTab(this, 'ot-create')">Create</div>
                         <div class="tab" onclick="switchTab(this, 'ot-list')">List</div>
+                        <div class="tab" onclick="switchTab(this, 'ot-approve')">Approve</div>
                     </div>
                     <div id="ot-create">
                         <div class="form-group">
@@ -958,6 +981,57 @@
                         </div>
                         <button class="btn btn-primary" onclick="listOvertime()">Search</button>
                         <div id="output-ot-list" class="output"><span class="output-placeholder">Click search...</span></div>
+                    </div>
+                    <div id="ot-approve" style="display:none">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Record ID</label>
+                                <input id="ot-approve-id" placeholder="Overtime UUID">
+                            </div>
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select id="ot-approve-status">
+                                    <option>Approved</option>
+                                    <option>Rejected</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Rejection Reason</label>
+                            <input id="ot-approve-reason" placeholder="If rejected...">
+                        </div>
+                        <button class="btn btn-warning" onclick="approveOvertime()">Submit Review</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shifts -->
+            <div class="card animate-in animate-in-delay-4">
+                <div class="card-header">
+                    <h3>shifts ✦</h3>
+                    <button class="btn btn-sm btn-outline" onclick="refreshShifts()">Refresh</button>
+                </div>
+                <div class="card-body">
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchTab(this, 'shift-create')">Create</div>
+                        <div class="tab" onclick="switchTab(this, 'shift-list')">List</div>
+                    </div>
+                    <div id="shift-create">
+                        <div class="form-row">
+                            <div class="form-group"><label>Shift Code</label><input id="shift-code" placeholder="MORN"></div>
+                            <div class="form-group"><label>Shift Name</label><input id="shift-name" placeholder="Morning Shift"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Start Time</label><input id="shift-start" type="time"></div>
+                            <div class="form-group"><label>End Time</label><input id="shift-end" type="time"></div>
+                        </div>
+                        <div class="form-group"><label>Allowed Late (mins)</label><input id="shift-late" type="number" value="30"></div>
+                        <button class="btn btn-success" onclick="createShift()">Add Shift</button>
+                        <div id="output-shift" class="output"><span class="output-placeholder">Fill form...</span></div>
+                    </div>
+                    <div id="shift-list" style="display:none">
+                        <button class="btn btn-primary" onclick="listShifts()">Get All Shifts</button>
+                        <div id="output-shift-list" class="output"><span class="output-placeholder">Click to fetch...</span></div>
                     </div>
                 </div>
             </div>
@@ -1319,6 +1393,20 @@
         }
         function refreshLeaves() { listLeaves(); }
 
+        async function approveLeave() {
+            const id = document.getElementById('leave-approve-id').value;
+            const status = document.getElementById('leave-approve-status').value;
+            const reason = document.getElementById('leave-approve-reason').value;
+            if (!id) return toast('Enter Request ID', 'error');
+            try {
+                const data = await api('PATCH', `/api/LeaveRequests/${id}/approve`, {
+                    status: status, rejectionReason: reason || null
+                });
+                showOutput('output-leave-list', data);
+                toast('Leave reviewed', 'success');
+            } catch (e) { toast(e.data?.message || 'Failed', 'error'); }
+        }
+
         // ─── Overtime ───────────────────────────────────────────
         async function createOvertime() {
             const empId = document.getElementById('ot-emp').value;
@@ -1347,6 +1435,45 @@
             catch (e) { showOutput('output-ot-list', e.data || e.message); }
         }
         function refreshOvertime() { listOvertime(); }
+
+        async function approveOvertime() {
+            const id = document.getElementById('ot-approve-id').value;
+            const status = document.getElementById('ot-approve-status').value;
+            const reason = document.getElementById('ot-approve-reason').value;
+            if (!id) return toast('Enter Record ID', 'error');
+            try {
+                const data = await api('PATCH', `/api/OvertimeRecords/${id}/approve`, {
+                    status: status, rejectionReason: reason || null
+                });
+                showOutput('output-ot-list', data);
+                toast('Overtime reviewed', 'success');
+            } catch (e) { toast(e.data?.message || 'Failed', 'error'); }
+        }
+
+        // ─── Shifts ────────────────────────────────────────────
+        async function createShift() {
+            const code = document.getElementById('shift-code').value;
+            const name = document.getElementById('shift-name').value;
+            const start = document.getElementById('shift-start').value;
+            const end = document.getElementById('shift-end').value;
+            const late = document.getElementById('shift-late').value;
+            if (!code || !name) return toast('Fill code and name', 'error');
+            try {
+                const data = await api('POST', '/api/Shifts', {
+                    shiftCode: code, shiftName: name,
+                    startTime: start + ":00", endTime: end + ":00",
+                    allowedLateMinutes: parseInt(late) || 30
+                });
+                showOutput('output-shift', data);
+                toast('Shift added', 'success');
+            } catch (e) { showOutput('output-shift', e.data || e.message); toast('Failed', 'error'); }
+        }
+
+        async function listShifts() {
+            try { showOutput('output-shift-list', await api('GET', '/api/Shifts')); }
+            catch (e) { showOutput('output-shift-list', e.data || e.message); }
+        }
+        function refreshShifts() { listShifts(); }
 
         // ─── Holidays ───────────────────────────────────────────
         async function createHoliday() {
