@@ -1,0 +1,273 @@
+GHI CHÚ KIỂM THỬ ATTENDANCE SERVICE
+
+API:
+https://attendanceapi-production-0e83.up.railway.app/swagger/index.html
+
+Frontend:
+https://attendance-service-lime.vercel.app/
+
+Lưu ý:
+- Chỉ kiểm tra đăng nhập và các API đọc dữ liệu.
+- Không tạo, sửa, xóa, đồng bộ hoặc đóng bảng chấm công trên môi trường production.
+
+
+1. CÁC LỖI BẢO MẬT NGHIÊM TRỌNG
+
+- Frontend đang ghi cứng tài khoản Admin `admin/admin123` trong mã nguồn.
+- Bất kỳ ai truy cập website cũng có thể lấy được JWT có quyền Admin.
+- Cần xóa ngay tài khoản thử nghiệm khỏi frontend production.
+- Không nên cho tài khoản Admin thử nghiệm hoạt động trên production.
+- JWT Admin đang được lưu trong `localStorage`, có nguy cơ bị đánh cắp nếu xảy ra XSS.
+- Frontend đang dùng `innerHTML` để hiển thị dữ liệu lấy từ API.
+- Các trường như tên nhân viên, lý do nghỉ, ghi chú hoặc tên ngày lễ có thể bị lợi dụng để chèn mã HTML/JavaScript độc hại.
+- Nên dùng `textContent` hoặc thư viện sanitize trước khi hiển thị dữ liệu.
+- Frontend cho phép người dùng thay đổi API Base URL trong khi vẫn gửi kèm JWT.
+- Kẻ xấu có thể đổi Base URL sang máy chủ của họ để đánh cắp token.
+- API đang cho phép CORS với mọi domain bằng `Access-Control-Allow-Origin: *`.
+- Chỉ nên cho phép domain frontend thật và localhost trong môi trường development.
+- Cần bổ sung các security header:
+  - Content-Security-Policy.
+  - X-Content-Type-Options.
+  - X-Frame-Options hoặc `frame-ancestors`.
+  - Referrer-Policy.
+  - Permissions-Policy.
+
+
+2. XÁC THỰC VÀ PHÂN QUYỀN
+
+- Swagger chưa khai báo Bearer Authentication.
+- Swagger hiện không có nút Authorize đúng nghĩa dù API thực tế yêu cầu JWT.
+- OpenAPI đang hiển thị các endpoint không yêu cầu bảo mật, nhưng gọi thật lại trả về 401.
+- Swagger chỉ mô tả response 200, còn thiếu 400, 401, 403 và 404.
+- JWT hiện chỉ có role Admin, chưa kiểm tra được đầy đủ quyền Manager và Employee.
+- Cần thêm `employee_id` vào JWT của Manager và Employee.
+- Admin và HR được quản lý toàn bộ dữ liệu.
+- Manager chỉ được xem và duyệt dữ liệu nhân viên thuộc phòng ban mình quản lý.
+- Employee chỉ được xem và thao tác dữ liệu của chính mình.
+- Employee không được tự truyền `employeeId` của người khác khi chấm công, xin nghỉ hoặc đăng ký làm thêm.
+- Backend nên lấy EmployeeId trực tiếp từ JWT.
+- Các endpoint sau chỉ được dành cho đúng quyền:
+  - Đồng bộ HR Core.
+  - Seed ca làm việc.
+  - Đóng bảng chấm công tháng.
+  - Duyệt đơn nghỉ phép.
+  - Duyệt làm thêm giờ.
+  - Sửa hoặc xóa bản ghi chấm công.
+- Cần ghi audit log cho các thao tác duyệt, sửa chấm công, đồng bộ và đóng bảng.
+
+
+3. VALIDATION VÀ QUY TẮC NGHIỆP VỤ
+
+- Khi truyền `status=INVALID`, API đang trả về toàn bộ dữ liệu thay vì báo lỗi 400.
+- Khi `fromDate` lớn hơn `toDate`, API đang trả về mảng rỗng thay vì báo dữ liệu không hợp lệ.
+- Cần kiểm tra ngày bắt đầu nghỉ không được lớn hơn ngày kết thúc.
+- Cần giới hạn số ngày nghỉ hợp lý.
+- Dữ liệu hiện có một đơn nghỉ phép kéo dài 883 ngày.
+- Cần xác định rõ cách tính ngày nghỉ có trừ cuối tuần và ngày lễ hay không.
+- Làm thêm giờ phải kiểm tra:
+  - Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.
+  - Ngày đăng ký phải khớp với thời gian bắt đầu và kết thúc.
+  - Không được trùng với khoảng làm thêm đã tồn tại.
+  - Không được có số giờ âm.
+  - Không được vượt quá số giờ tối đa cho phép.
+- Ngày lễ cần kiểm tra:
+  - Tên không được để trống.
+  - Tên phải có độ dài tối thiểu và tối đa.
+  - Không được tạo trùng ngày và tên.
+  - Phải xử lý đúng trường hợp lặp lại hằng năm.
+- Dữ liệu hiện có ngày lễ bị trùng và có ngày lễ chỉ dài một ký tự.
+- Ca làm việc cần kiểm tra:
+  - Mã ca phải duy nhất.
+  - Giờ bắt đầu và kết thúc phải hợp lệ.
+  - Phải hỗ trợ ca làm việc qua đêm.
+  - Số phút cho phép đi muộn không được âm.
+- Không được check-out nếu chưa check-in.
+- Không được check-in lần thứ hai khi bản ghi trong ngày chưa check-out.
+- Cần xác định một nhân viên có được phép có nhiều bản ghi chấm công trong cùng ngày hay không.
+- Nếu chỉ cho phép một bản ghi mỗi ngày thì cần thêm unique constraint tại database.
+- Frontend không nên tự tạo mặc định hai giờ overtime khi người dùng bỏ trống thời gian.
+- Trạng thái duyệt phải dùng enum hợp lệ, không nhận chuỗi tùy ý.
+
+
+4. MÚI GIỜ VÀ TÍNH TOÁN CHẤM CÔNG
+
+- Cần thống nhất múi giờ nghiệp vụ, ví dụ `Asia/Ho_Chi_Minh`.
+- Không được dùng ngày UTC trực tiếp làm ngày chấm công tại Việt Nam.
+- Có bản ghi check-in lúc 17:20 UTC ngày 13/06/2026.
+- Thời gian này tương ứng 00:20 ngày 14/06/2026 tại Việt Nam nhưng bản ghi vẫn mang ngày 13/06/2026.
+- Nên lưu thời gian UTC trong database nhưng tính ngày và ca làm việc theo múi giờ công ty.
+- `workedHours` và báo cáo tổng hợp đang trả quá nhiều chữ số thập phân.
+- Cần làm tròn số giờ theo một quy tắc thống nhất.
+- Cần định nghĩa rõ quy tắc Present, Late, HalfDay và Absent.
+- Danh sách ca làm việc hiện đang rỗng.
+- Tất cả bản ghi attendance hiện có `shiftId = null`.
+- Vì chưa có ca làm việc nên thống kê Late luôn bằng 0 và chưa phản ánh đúng nghiệp vụ.
+- Không nên đánh dấu HalfDay chỉ vì check-in và check-out cách nhau vài giây nếu chưa có quy tắc ca làm việc đầy đủ.
+- Cần có job xác định nhân viên vắng mặt, thay vì báo cáo chỉ đếm những người đã có bản ghi chấm công.
+
+
+5. ĐỒNG BỘ VỚI HR CORE
+
+- Cần xử lý khi nhân viên đổi tên, đổi phòng ban, đổi chức vụ hoặc nghỉ việc.
+- Có hai bản ghi chấm công không tìm được tên nhân viên và phòng ban tương ứng.
+- Điều này cho thấy dữ liệu cache nhân viên đang bị thiếu hoặc không còn đồng bộ với HR Core.
+- Đồng bộ phải có tính idempotent, gọi nhiều lần không được tạo dữ liệu trùng.
+- Cần lưu thời gian đồng bộ gần nhất.
+- Cần lưu trạng thái và chi tiết lỗi của từng lần đồng bộ.
+- Nên nhận các event:
+  - `employee.created`.
+  - `employee.updated`.
+  - `employee.resigned`.
+  - `department.updated`.
+- Nên có thêm scheduled reconciliation để sửa dữ liệu bị lệch hoặc bỏ lỡ event.
+- Phải kiểm tra nhân viên còn hoạt động trước khi cho check-in, xin nghỉ hoặc đăng ký overtime.
+- Frontend đang gọi `loadEmployees()` hai lần sau khi đồng bộ HR Core.
+
+
+6. API VÀ DATABASE
+
+- Cần thêm phân trang cho:
+  - Danh sách chấm công.
+  - Danh sách nghỉ phép.
+  - Danh sách làm thêm giờ.
+  - Báo cáo theo nhân viên.
+  - Danh sách nhân viên đồng bộ từ HR Core.
+- Cần hỗ trợ sắp xếp và lọc dữ liệu rõ ràng.
+- Các giá trị trạng thái nên dùng enum thay vì chuỗi tự do.
+- Cần thêm index hoặc unique constraint cho:
+  - Mã ca làm việc.
+  - Ngày lễ.
+  - Nhân viên và ngày chấm công.
+- Các use case cập nhật nhiều bảng cần chạy trong transaction.
+- Nên dùng Outbox Pattern cho các event quan trọng.
+- Không nên xóa cứng bản ghi chấm công, nghỉ phép hoặc overtime đã được duyệt.
+- Nên dùng trạng thái hủy hoặc soft delete và lưu lịch sử thay đổi.
+- Monthly Close phải có tính idempotent.
+- Gọi đóng bảng nhiều lần không được tạo dữ liệu trùng.
+- Sau khi đóng kỳ, cần khóa các thao tác sửa dữ liệu của kỳ đó.
+- Chưa có health check:
+  - `/health/live`.
+  - `/health/ready`.
+- Readiness check nên kiểm tra database và các dependency cần thiết.
+- Cần chuẩn hóa lỗi API theo ProblemDetails.
+
+
+7. FRONTEND CÒN THIẾU
+
+- Danh sách chấm công nên hiển thị thành bảng thay vì JSON thô.
+- Cần có phân trang, loading state, empty state và thông báo lỗi rõ ràng.
+- Chưa có màn hình duyệt hoặc từ chối đơn nghỉ phép.
+- Chưa có màn hình duyệt hoặc từ chối overtime.
+- Chưa có màn hình quản lý ca làm việc.
+- Chưa có màn hình đóng bảng chấm công tháng.
+- Chưa hiển thị trạng thái kỳ đã đóng.
+- Chưa có chức năng sửa hoặc hủy bản ghi chấm công theo quyền.
+- Chưa có chức năng sửa hoặc hủy đơn nghỉ và overtime khi còn Pending.
+- Cần hộp thoại xác nhận trước các thao tác nguy hiểm.
+- Cần vô hiệu hóa nút trong lúc request đang chạy để tránh gửi trùng.
+- Cần thêm bộ lọc loại nghỉ phép.
+- Cần thêm bộ lọc trạng thái overtime.
+- Cần thêm bộ lọc năm cho ngày lễ.
+- Ngày giờ cần hiển thị theo múi giờ và định dạng Việt Nam.
+- Nút Refresh Attendance đang có logic sai nên gần như không tải lại danh sách.
+- Frontend đang bỏ qua lỗi tải dashboard.
+- Lỗi tải danh sách nhân viên chỉ được ghi ra console.
+- Trạng thái Connected chỉ nên hiện khi API, xác thực và dependency cần thiết đều sẵn sàng.
+- Cần có nút đăng xuất thật trên giao diện.
+- Nên tách file HTML lớn thành project có module, lint, type-check và test.
+- Cần bổ sung accessibility:
+  - Label liên kết đúng với input.
+  - Điều hướng bằng bàn phím.
+  - Focus state rõ ràng.
+  - `aria-live` cho toast và thông báo lỗi.
+  - Hỗ trợ reduced motion.
+
+
+8. CÁC TEST CẦN BỔ SUNG
+
+- Test cách tính Present, Late, HalfDay và Absent.
+- Test ca làm việc qua đêm.
+- Test múi giờ Việt Nam.
+- Test không cho check-in trùng trong ngày.
+- Test không cho check-out trước check-in.
+- Test overtime bị trùng giờ.
+- Test overtime có số giờ âm hoặc vượt giới hạn.
+- Test ngày bắt đầu và ngày kết thúc đơn nghỉ.
+- Test đơn nghỉ bị trùng khoảng thời gian.
+- Test tính ngày nghỉ với cuối tuần và ngày lễ.
+- Test không cho tạo ngày lễ trùng.
+- Test phân quyền Admin, HR, Manager và Employee cho từng endpoint.
+- Test Employee không thể gửi EmployeeId của người khác.
+- Test đồng bộ HR Core có tính idempotent.
+- Test xử lý nhân viên đã nghỉ việc.
+- Test transaction khi cập nhật nhiều bảng.
+- Test contract với API và event của HR Core.
+- Test Monthly Close khi gọi lại nhiều lần.
+- Test phân trang với dữ liệu lớn.
+- Test XSS, CORS, token hết hạn và brute-force login.
+
+
+9. DEVOPS VÀ VẬN HÀNH
+
+- Nên tắt hoặc bảo vệ Swagger trên production.
+- JWT key, mật khẩu database và tài khoản service phải lưu trong secret manager.
+- Cần rate limit cho login và các endpoint ghi dữ liệu.
+- Cần structured logging và correlation ID.
+- Cần theo dõi các metric:
+  - Số lần check-in và check-out.
+  - Số lỗi đồng bộ HR Core.
+  - Thời gian phản hồi và tỷ lệ lỗi.
+  - Số đơn nghỉ và overtime đang Pending.
+- Cần backup database.
+- Cần có kế hoạch rollback migration.
+- CI cần chạy:
+  - Build.
+  - Test.
+  - Lint.
+  - Kiểm tra migration.
+  - Security scan.
+
+
+10. THỨ TỰ ƯU TIÊN SỬA
+
+Ưu tiên P0 - Sửa ngay:
+
+- Xóa tài khoản Admin ghi cứng khỏi frontend production.
+- Sửa nguy cơ XSS do sử dụng `innerHTML`.
+- Không lưu JWT Admin trong `localStorage`.
+- Không cho thay đổi API Base URL khi request có JWT.
+- Áp dụng RBAC và lấy EmployeeId từ JWT.
+- Giới hạn CORS.
+
+Ưu tiên P1 - Sửa trước khi demo nghiệp vụ:
+
+- Tạo và cấu hình ca làm việc.
+- Sửa cách xử lý múi giờ.
+- Bổ sung validation trạng thái và khoảng ngày.
+- Bổ sung validation nghỉ phép, overtime và ngày lễ.
+- Sửa dữ liệu nhân viên HR Core bị thiếu hoặc không đồng bộ.
+- Cấu hình Bearer Authentication cho Swagger.
+- Thêm màn hình duyệt nghỉ phép, overtime và quản lý ca.
+
+Ưu tiên P2 - Sửa trước khi có nhiều dữ liệu:
+
+- Thêm phân trang và database index.
+- Thêm health check, logging, metric và rate limiting.
+- Bổ sung transaction, Outbox Pattern và Monthly Close idempotent.
+- Viết test tự động và cấu hình CI.
+
+
+11. KẾT QUẢ KIỂM TRA HIỆN TẠI
+
+- Login API hoạt động và trả JWT role Admin.
+- Các API đọc dữ liệu đều yêu cầu JWT.
+- Request không có token trả về 401.
+- GUID sai định dạng trả về 400.
+- ID không tồn tại trả về 404.
+- HR Core cache hiện có 4 nhân viên.
+- Attendance hiện có 7 bản ghi.
+- Leave Request hiện có 1 bản ghi.
+- Overtime hiện có 3 bản ghi.
+- Holidays hiện có 4 bản ghi.
+- Shifts hiện có 0 bản ghi.
+- Thời gian phản hồi API Summary quan sát được khoảng 0,39 đến 0,44 giây.

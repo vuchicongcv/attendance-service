@@ -727,6 +727,15 @@
                 <div class="auth-header">I. Ủy quyền</div>
 
                 <div class="auth-row">
+                    <span class="auth-label">Tài khoản</span>
+                    <input id="loginUsername" type="text" style="width: 200px; padding: 6px; border-radius: 4px; border: 1px solid var(--border);" placeholder="Username">
+                </div>
+                <div class="auth-row">
+                    <span class="auth-label">Mật khẩu</span>
+                    <input id="loginPassword" type="password" style="width: 200px; padding: 6px; border-radius: 4px; border: 1px solid var(--border);" placeholder="Password">
+                </div>
+
+                <div class="auth-row">
                     <span class="auth-label">Người mang JWT</span>
                     <label class="switch-container">
                         <input type="checkbox" id="useAuthToggle" checked>
@@ -1012,8 +1021,8 @@
 
     <script>
         // ─── Auth ────────────────────────────────────────────────
-        let token = localStorage.getItem('jwt_token') || null;
-        let tokenExpires = localStorage.getItem('jwt_expires') || null;
+        let token = sessionStorage.getItem('jwt_token') || null;
+        let tokenExpires = sessionStorage.getItem('jwt_expires') || null;
 
         function isTokenValid() {
             if (!token) return false;
@@ -1029,9 +1038,15 @@
         }
         function setToken(v) {
             token = v;
-            if (v) localStorage.setItem('jwt_token', v);
-            else localStorage.removeItem('jwt_token');
-            localStorage.removeItem('jwt_expires');
+            const baseUrlInput = document.getElementById('baseUrl');
+            if (v) {
+                sessionStorage.setItem('jwt_token', v);
+                if (baseUrlInput) baseUrlInput.disabled = true;
+            } else {
+                sessionStorage.removeItem('jwt_token');
+                if (baseUrlInput) baseUrlInput.disabled = false;
+            }
+            sessionStorage.removeItem('jwt_expires');
         }
 
         async function generateToken() {
@@ -1046,11 +1061,16 @@
             status.textContent = 'Đang lấy token...';
             status.className = 'token-status';
 
+            const usernameInput = document.getElementById('loginUsername');
+            const passwordInput = document.getElementById('loginPassword');
+            const uname = usernameInput ? usernameInput.value : '';
+            const pwd = passwordInput ? passwordInput.value : '';
+
             try {
                 const res = await fetch(base + '/api/Auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                    body: JSON.stringify({ username: uname, password: pwd })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || 'Failed');
@@ -1082,8 +1102,10 @@
 
         function logout() {
             token = null; tokenExpires = null;
-            localStorage.removeItem('jwt_token');
-            localStorage.removeItem('jwt_expires');
+            sessionStorage.removeItem('jwt_token');
+            sessionStorage.removeItem('jwt_expires');
+            const baseUrlInput = document.getElementById('baseUrl');
+            if (baseUrlInput) baseUrlInput.disabled = false;
             showLogin();
         }
 
@@ -1108,11 +1130,20 @@
 
         function showOutput(id, data) {
             const el = document.getElementById(id);
+            el.innerHTML = '';
+            const span = document.createElement('span');
             if (typeof data === 'object' && data !== null) {
-                el.innerHTML = `<span class="success">${JSON.stringify(data, null, 2)}</span>`;
+                span.className = 'success';
+                span.textContent = JSON.stringify(data, null, 2);
             } else {
-                el.innerHTML = data || '<span class="muted">No data</span>';
+                if (data) {
+                    span.textContent = data;
+                } else {
+                    span.className = 'muted';
+                    span.textContent = 'No data';
+                }
             }
+            el.appendChild(span);
         }
 
         // ─── API ────────────────────────────────────────────────
@@ -1169,7 +1200,10 @@
                     if (!sel) return;
                     sel.innerHTML = '<option value="">Select employee...</option>';
                     if (Array.isArray(employees)) employees.forEach(e => {
-                        sel.innerHTML += `<option value="${e.id}">[${e.employeeCode || 'N/A'}] ${e.fullName}${e.departmentName ? ' - ' + e.departmentName : ''}</option>`;
+                        const opt = document.createElement('option');
+                        opt.value = e.id;
+                        opt.textContent = `[${e.employeeCode || 'N/A'}] ${e.fullName}${e.departmentName ? ' - ' + e.departmentName : ''}`;
+                        sel.appendChild(opt);
                     });
                 });
             } catch (e) { console.log('Employee load failed:', e.message); }
