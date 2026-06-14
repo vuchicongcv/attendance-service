@@ -6,6 +6,7 @@ using Attendance.API.Models.Entities;
 using Attendance.API.Models.DTOs;
 using Attendance.API.Models.Requests;
 using Attendance.API.Services;
+using Attendance.API.DTOs;
 
 namespace Attendance.API.Controllers;
 
@@ -37,11 +38,13 @@ public class AttendanceRecordsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<AttendanceRecordDto>>> GetAll(
+    public async Task<ActionResult<PagedResult<AttendanceRecordDto>>> GetAll(
         [FromQuery] Guid? employeeId,
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
-        [FromQuery] string? status)
+        [FromQuery] string? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         var query = _db.AttendanceRecords.AsQueryable();
 
@@ -51,11 +54,19 @@ public class AttendanceRecordsController : ControllerBase
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<AttendanceStatus>(status, true, out var statusEnum))
             query = query.Where(a => a.Status == statusEnum);
 
-        var records = await query.OrderByDescending(a => a.Date).ThenByDescending(a => a.CreatedAt).ToListAsync();
+        var totalCount = await query.CountAsync();
+        var records = await query.OrderByDescending(a => a.Date).ThenByDescending(a => a.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var empMap = await _hr.GetEmployeeMapAsync();
         var shifts = await _db.Shifts.ToDictionaryAsync(s => s.Id);
 
-        return records.Select(r => MapToDto(r, empMap.GetValueOrDefault(r.EmployeeId), shifts.GetValueOrDefault(r.ShiftId ?? Guid.Empty))).ToList();
+        return new PagedResult<AttendanceRecordDto>
+        {
+            Items = records.Select(r => MapToDto(r, empMap.GetValueOrDefault(r.EmployeeId), shifts.GetValueOrDefault(r.ShiftId ?? Guid.Empty))),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     [HttpGet("{id}")]
@@ -83,20 +94,30 @@ public class AttendanceRecordsController : ControllerBase
     }
 
     [HttpGet("employee/{employeeId}/history")]
-    public async Task<ActionResult<List<AttendanceRecordDto>>> GetHistory(
+    public async Task<ActionResult<PagedResult<AttendanceRecordDto>>> GetHistory(
         Guid employeeId,
         [FromQuery] DateTime? fromDate,
-        [FromQuery] DateTime? toDate)
+        [FromQuery] DateTime? toDate,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         var query = _db.AttendanceRecords.Where(a => a.EmployeeId == employeeId);
         if (fromDate.HasValue) query = query.Where(a => a.Date >= fromDate.Value);
         if (toDate.HasValue) query = query.Where(a => a.Date <= toDate.Value);
 
-        var records = await query.OrderByDescending(a => a.Date).ToListAsync();
+        var totalCount = await query.CountAsync();
+        var records = await query.OrderByDescending(a => a.Date)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var emp = await _hr.GetEmployeeAsync(employeeId);
         var shifts = await _db.Shifts.ToDictionaryAsync(s => s.Id);
 
-        return records.Select(r => MapToDto(r, emp, shifts.GetValueOrDefault(r.ShiftId ?? Guid.Empty))).ToList();
+        return new PagedResult<AttendanceRecordDto>
+        {
+            Items = records.Select(r => MapToDto(r, emp, shifts.GetValueOrDefault(r.ShiftId ?? Guid.Empty))),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     [HttpPost("check-in")]
@@ -281,12 +302,19 @@ public class AttendanceRecordsController : ControllerBase
     [HttpPost("monthly-close/{year}/{month}")]
     public async Task<IActionResult> MonthlyClose(int year, int month)
     {
-        var from = new DateTime(year, month, 1);
-        var to = from.AddMonths(1).AddDays(-1);
+        var start = new DateTime(year, month, 1);
+        var end = start.AddMonths(1).AddDays(-1);
+
+        var existingClose = await _db.AttendanceRecords.AnyAsync(a => a.Date >= start && a.Date <= end && a.IsClosed);
+        if (existingClose)
+            return Conflict(new { message = $"Tháng {month}/{year} đã được đóng bảng chấm công từ trước." });
 
         var records = await _db.AttendanceRecords
-            .Where(a => a.Date >= from && a.Date <= to)
+            .Where(a => a.Date >= start && a.Date <= end)
             .ToListAsync();
+
+        records.ForEach(r => r.IsClosed = true);
+        await _db.SaveChangesAsync();
 
         await _events.PublishMonthlyClosedAsync(year, month);
 

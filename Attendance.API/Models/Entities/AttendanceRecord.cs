@@ -34,4 +34,6 @@ public class AttendanceRecord
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }
+
+    public bool IsClosed { get; set; } = false;
 }

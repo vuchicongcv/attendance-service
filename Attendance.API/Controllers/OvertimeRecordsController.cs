@@ -6,6 +6,7 @@ using Attendance.API.Models.Entities;
 using Attendance.API.Models.DTOs;
 using Attendance.API.Models.Requests;
 using Attendance.API.Services;
+using Attendance.API.DTOs;
 
 namespace Attendance.API.Controllers;
 
@@ -24,18 +25,28 @@ public class OvertimeRecordsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<OvertimeRecordDto>>> GetAll(
+    public async Task<ActionResult<PagedResult<OvertimeRecordDto>>> GetAll(
         [FromQuery] Guid? employeeId,
-        [FromQuery] string? status)
+        [FromQuery] string? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         var query = _db.OvertimeRecords.AsQueryable();
         if (employeeId.HasValue) query = query.Where(o => o.EmployeeId == employeeId.Value);
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<OvertimeStatus>(status, true, out var statusEnum))
             query = query.Where(o => o.Status == statusEnum);
 
-        var records = await query.OrderByDescending(o => o.Date).ToListAsync();
+        var totalCount = await query.CountAsync();
+        var records = await query.OrderByDescending(o => o.Date)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var empMap = await _hr.GetEmployeeMapAsync();
-        return records.Select(o => MapToDto(o, empMap.GetValueOrDefault(o.EmployeeId))).ToList();
+        return new PagedResult<OvertimeRecordDto>
+        {
+            Items = records.Select(o => MapToDto(o, empMap.GetValueOrDefault(o.EmployeeId))),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     [HttpGet("{id}")]
@@ -48,14 +59,23 @@ public class OvertimeRecordsController : ControllerBase
     }
 
     [HttpGet("employee/{employeeId}")]
-    public async Task<ActionResult<List<OvertimeRecordDto>>> GetByEmployee(Guid employeeId)
+    public async Task<ActionResult<PagedResult<OvertimeRecordDto>>> GetByEmployee(
+        Guid employeeId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
-        var records = await _db.OvertimeRecords
-            .Where(o => o.EmployeeId == employeeId)
-            .OrderByDescending(o => o.Date)
-            .ToListAsync();
+        var query = _db.OvertimeRecords.Where(o => o.EmployeeId == employeeId);
+        var totalCount = await query.CountAsync();
+        var records = await query.OrderByDescending(o => o.Date)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var emp = await _hr.GetEmployeeAsync(employeeId);
-        return records.Select(o => MapToDto(o, emp)).ToList();
+        return new PagedResult<OvertimeRecordDto>
+        {
+            Items = records.Select(o => MapToDto(o, emp)),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     [HttpPost]

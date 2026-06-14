@@ -2,6 +2,9 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Attendance.API.Data;
 using Attendance.API.Services;
 
@@ -13,6 +16,24 @@ builder.Services.AddControllers().AddNewtonsoftJson();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                QueueLimit = 0,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+    options.RejectionStatusCode = 429;
+});
 
 var connectionString = builder.Configuration["DATABASE_URL"]
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
@@ -62,23 +83,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-app.UseExceptionHandler(exceptionHandlerApp =>
-{
-    exceptionHandlerApp.Run(async context =>
-    {
-        context.Response.StatusCode = 500;
-        context.Response.ContentType = "application/json";
-        context.Response.Headers["Access-Control-Allow-Origin"] = "*";
-        
-        var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
-        var ex = exceptionHandlerPathFeature?.Error;
-        
-        var errorMsg = ex != null ? ex.ToString() : "Unknown internal server error";
-        var json = System.Text.Json.JsonSerializer.Serialize(new { error = errorMsg });
-        
-        await context.Response.WriteAsync(json);
-    });
-});
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
+app.UseRateLimiter();
 
 app.UseCors();
 
@@ -115,6 +123,7 @@ using (var scope = app.Services.CreateScope())
         db.Database.ExecuteSqlRaw(@"
             ALTER TABLE ""AttendanceRecords"" ADD COLUMN IF NOT EXISTS ""ShiftId"" UUID NULL;
             CREATE INDEX IF NOT EXISTS ""IX_AttendanceRecords_ShiftId"" ON ""AttendanceRecords"" (""ShiftId"");
+            ALTER TABLE ""AttendanceRecords"" ADD COLUMN IF NOT EXISTS ""IsClosed"" BOOLEAN NOT NULL DEFAULT FALSE;
         ");
     }
     catch { }
@@ -125,5 +134,14 @@ app.UseSwaggerUI();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = _ => true
+});
 
 app.Run();

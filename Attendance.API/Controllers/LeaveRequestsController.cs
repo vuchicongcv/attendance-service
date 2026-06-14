@@ -6,6 +6,7 @@ using Attendance.API.Models.Entities;
 using Attendance.API.Models.DTOs;
 using Attendance.API.Models.Requests;
 using Attendance.API.Services;
+using Attendance.API.DTOs;
 
 namespace Attendance.API.Controllers;
 
@@ -24,10 +25,12 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<LeaveRequestDto>>> GetAll(
+    public async Task<ActionResult<PagedResult<LeaveRequestDto>>> GetAll(
         [FromQuery] Guid? employeeId,
         [FromQuery] string? status,
-        [FromQuery] string? leaveType)
+        [FromQuery] string? leaveType,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         var query = _db.LeaveRequests.AsQueryable();
         if (employeeId.HasValue) query = query.Where(l => l.EmployeeId == employeeId.Value);
@@ -36,9 +39,18 @@ public class LeaveRequestsController : ControllerBase
         if (!string.IsNullOrEmpty(leaveType) && Enum.TryParse<LeaveType>(leaveType, true, out var typeEnum))
             query = query.Where(l => l.LeaveType == typeEnum);
 
-        var requests = await query.OrderByDescending(l => l.CreatedAt).ToListAsync();
+        var totalCount = await query.CountAsync();
+        var requests = await query.OrderByDescending(l => l.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var empMap = await _hr.GetEmployeeMapAsync();
-        return requests.Select(l => MapToDto(l, empMap.GetValueOrDefault(l.EmployeeId))).ToList();
+
+        return new PagedResult<LeaveRequestDto>
+        {
+            Items = requests.Select(l => MapToDto(l, empMap.GetValueOrDefault(l.EmployeeId))),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     [HttpGet("{id}")]
@@ -51,14 +63,25 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpGet("employee/{employeeId}")]
-    public async Task<ActionResult<List<LeaveRequestDto>>> GetByEmployee(Guid employeeId)
+    public async Task<ActionResult<PagedResult<LeaveRequestDto>>> GetByEmployee(
+        Guid employeeId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
-        var requests = await _db.LeaveRequests
-            .Where(l => l.EmployeeId == employeeId)
-            .OrderByDescending(l => l.CreatedAt)
-            .ToListAsync();
+        var query = _db.LeaveRequests.Where(l => l.EmployeeId == employeeId);
+        var totalCount = await query.CountAsync();
+        var requests = await query.OrderByDescending(l => l.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
         var emp = await _hr.GetEmployeeAsync(employeeId);
-        return requests.Select(l => MapToDto(l, emp)).ToList();
+
+        return new PagedResult<LeaveRequestDto>
+        {
+            Items = requests.Select(l => MapToDto(l, emp)),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     [HttpPost]
