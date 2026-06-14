@@ -19,17 +19,16 @@
             --border: #E2E8F0;
             --card: #FFFFFF;
             --ring: #0052FF;
-
             --font-display: 'Calistoga', Georgia, serif;
             --font-ui: 'Inter', system-ui, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
-
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
             --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
             --shadow-lg: 0 10px 15px rgba(0,0,0,0.08);
             --shadow-xl: 0 20px 25px rgba(0,0,0,0.1);
             --shadow-accent: 0 4px 14px rgba(0,82,255,0.25);
             --shadow-accent-lg: 0 8px 24px rgba(0,82,255,0.35);
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -51,6 +50,20 @@
 
         .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
 
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.35); }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
         /* ─── Header ─── */
         .app-header {
             background: var(--card);
@@ -62,15 +75,22 @@
             justify-content: space-between;
             align-items: center;
             box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+        .app-header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 3px;
+            background: linear-gradient(to right, var(--accent), var(--accent-secondary));
+            opacity: 0.5;
         }
         .app-header h1 {
             font-family: var(--font-display);
             font-size: 24px;
             font-weight: 400;
             letter-spacing: -0.02em;
-            background: linear-gradient(to right, var(--foreground), var(--foreground));
-            -webkit-background-clip: text;
-            background-clip: text;
         }
         .app-header h1 .gradient-text {
             background: linear-gradient(to right, var(--accent), var(--accent-secondary));
@@ -92,6 +112,7 @@
             letter-spacing: 0.05em;
             text-transform: uppercase;
             border: 1px solid;
+            transition: all 0.3s ease;
         }
         .status-badge.online {
             background: rgba(0,82,255,0.04);
@@ -104,8 +125,7 @@
             border-color: rgba(239,68,68,0.15);
         }
         .status-badge .dot {
-            width: 6px;
-            height: 6px;
+            width: 6px; height: 6px;
             border-radius: 50%;
             display: inline-block;
         }
@@ -114,11 +134,6 @@
             animation: pulse-dot 2s ease-in-out infinite;
         }
         .status-badge.offline .dot { background: #ef4444; }
-
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.3); }
-        }
 
         /* ─── API Bar ─── */
         .api-bar {
@@ -157,6 +172,7 @@
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0,82,255,0.1);
         }
+        .api-bar .btn { flex-shrink: 0; }
 
         /* ─── Section Label ─── */
         .section-label {
@@ -169,9 +185,8 @@
             background: rgba(0,82,255,0.04);
             margin-bottom: 12px;
         }
-        .section-label .sd-dot {
-            width: 7px;
-            height: 7px;
+        .section-label .dot {
+            width: 7px; height: 7px;
             border-radius: 50%;
             background: linear-gradient(to right, var(--accent), var(--accent-secondary));
             animation: pulse-dot 2.5s ease-in-out infinite;
@@ -183,21 +198,6 @@
             letter-spacing: 0.15em;
             color: var(--accent);
             font-weight: 500;
-        }
-
-        .section-heading {
-            font-family: var(--font-display);
-            font-size: 22px;
-            font-weight: 400;
-            letter-spacing: -0.01em;
-            margin-bottom: 20px;
-            color: var(--foreground);
-        }
-        .section-heading .gradient-text {
-            background: linear-gradient(to right, var(--accent), var(--accent-secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
         }
 
         /* ─── Dashboard Stats ─── */
@@ -216,7 +216,7 @@
             border-radius: 14px;
             padding: 22px 24px;
             box-shadow: var(--shadow-sm);
-            transition: all 0.3s ease;
+            transition: all 0.3s var(--ease-out);
             position: relative;
             overflow: hidden;
         }
@@ -226,10 +226,8 @@
         }
         .stat-card .accent-bar {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
+            top: 0; left: 0;
+            width: 100%; height: 3px;
             background: linear-gradient(to right, var(--accent), var(--accent-secondary));
             opacity: 0.6;
         }
@@ -268,7 +266,7 @@
             border-radius: 16px;
             overflow: hidden;
             box-shadow: var(--shadow-sm);
-            transition: all 0.3s ease;
+            transition: all 0.3s var(--ease-out);
         }
         .card:hover { box-shadow: var(--shadow-md); }
 
@@ -326,7 +324,7 @@
             cursor: pointer;
             font-size: 13px;
             font-weight: 600;
-            transition: all 0.25s ease;
+            transition: all 0.25s var(--ease-out);
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -358,7 +356,6 @@
             box-shadow: 0 4px 14px rgba(5,150,105,0.3);
             transform: translateY(-1px);
         }
-
         .btn-danger {
             background: linear-gradient(to right, #dc2626, #ef4444);
             color: white;
@@ -368,7 +365,6 @@
             box-shadow: 0 4px 14px rgba(220,38,38,0.3);
             transform: translateY(-1px);
         }
-
         .btn-warning {
             background: linear-gradient(to right, #d97706, #f59e0b);
             color: white;
@@ -378,7 +374,6 @@
             box-shadow: 0 4px 14px rgba(217,119,6,0.3);
             transform: translateY(-1px);
         }
-
         .btn-outline {
             background: transparent;
             border: 1px solid var(--border);
@@ -389,9 +384,7 @@
             color: var(--accent);
             background: rgba(0,82,255,0.04);
         }
-
         .btn-sm { padding: 7px 14px; font-size: 12px; border-radius: 8px; }
-        .btn-lg { padding: 12px 28px; font-size: 14px; }
 
         /* ─── Forms ─── */
         .form-group { margin-bottom: 16px; }
@@ -436,7 +429,6 @@
         .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
         @media (max-width: 600px) { .form-row, .form-row-3 { grid-template-columns: 1fr; } }
 
-        /* checkbox */
         .checkbox-label {
             display: flex !important;
             align-items: center;
@@ -448,8 +440,7 @@
             margin-top: 10px;
         }
         .checkbox-label input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 18px; height: 18px;
             accent-color: var(--accent);
             border-radius: 4px;
             cursor: pointer;
@@ -475,28 +466,11 @@
         .output .info { color: var(--accent); }
         .output .muted { color: var(--muted-foreground); }
 
-        /* Empty state placeholder */
         .output-placeholder {
             color: var(--muted-foreground);
             font-size: 12px;
             font-style: italic;
         }
-
-        /* ─── Table ─── */
-        .table-wrap { overflow-x: auto; margin-top: 12px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th {
-            text-align: left;
-            padding: 12px 14px;
-            border-bottom: 2px solid var(--border);
-            color: var(--muted-foreground);
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-family: var(--font-mono);
-        }
-        td { padding: 12px 14px; border-bottom: 1px solid var(--muted); }
 
         /* ─── Badges ─── */
         .badge {
@@ -510,31 +484,11 @@
             font-family: var(--font-mono);
             letter-spacing: 0.03em;
         }
-        .badge-green {
-            background: rgba(5,150,105,0.08);
-            color: #059669;
-            border: 1px solid rgba(5,150,105,0.2);
-        }
-        .badge-yellow {
-            background: rgba(217,119,6,0.08);
-            color: #d97706;
-            border: 1px solid rgba(217,119,6,0.2);
-        }
-        .badge-red {
-            background: rgba(220,38,38,0.08);
-            color: #dc2626;
-            border: 1px solid rgba(220,38,38,0.2);
-        }
-        .badge-blue {
-            background: rgba(0,82,255,0.08);
-            color: var(--accent);
-            border: 1px solid rgba(0,82,255,0.2);
-        }
-        .badge-cyan {
-            background: rgba(6,182,212,0.08);
-            color: #06b6d4;
-            border: 1px solid rgba(6,182,212,0.2);
-        }
+        .badge-green { background: rgba(5,150,105,0.08); color: #059669; border: 1px solid rgba(5,150,105,0.2); }
+        .badge-yellow { background: rgba(217,119,6,0.08); color: #d97706; border: 1px solid rgba(217,119,6,0.2); }
+        .badge-red { background: rgba(220,38,38,0.08); color: #dc2626; border: 1px solid rgba(220,38,38,0.2); }
+        .badge-blue { background: rgba(0,82,255,0.08); color: var(--accent); border: 1px solid rgba(0,82,255,0.2); }
+        .badge-cyan { background: rgba(6,182,212,0.08); color: #06b6d4; border: 1px solid rgba(6,182,212,0.2); }
 
         /* ─── Toast ─── */
         .toast {
@@ -552,7 +506,7 @@
             z-index: 1000;
             transform: translateY(100px);
             opacity: 0;
-            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.35s var(--ease-out);
             max-width: 400px;
         }
         .toast.show { transform: translateY(0); opacity: 1; }
@@ -562,20 +516,21 @@
         /* ─── Spinner ─── */
         .spinner {
             display: inline-block;
-            width: 16px;
-            height: 16px;
+            width: 16px; height: 16px;
             border: 2.5px solid var(--border);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.6s linear infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ─── Login Overlay ─── */
         .login-overlay {
             position: fixed;
             inset: 0;
-            background: var(--background);
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(0,82,255,0.05) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 50%, rgba(77,124,255,0.03) 0%, transparent 60%),
+                var(--background);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -587,55 +542,62 @@
             visibility: hidden;
             pointer-events: none;
         }
+        .login-overlay::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+            background-size: 32px 32px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
         .login-card {
+            position: relative;
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 20px;
             padding: 48px 40px 40px;
-            width: 400px;
+            width: 480px;
             max-width: 90vw;
             box-shadow: var(--shadow-xl);
-            text-align: center;
         }
-        .login-card h1 {
+        .login-card .logo {
             font-family: var(--font-display);
             font-size: 28px;
-            margin-bottom: 4px;
+            text-align: center;
+            margin-bottom: 32px;
             letter-spacing: -0.02em;
         }
-        .login-card h1 .gradient-text {
+        .login-card .logo .gradient-text {
             background: linear-gradient(to right, var(--accent), var(--accent-secondary));
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
         }
-        .login-card .sub {
-            color: var(--muted-foreground);
-            font-size: 14px;
-            margin-bottom: 32px;
+        .login-card .auth-section {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            background: var(--background);
+            position: relative;
         }
-        .login-card .form-group {
-            text-align: left;
-        }
-        .login-card .btn {
-            width: 100%;
-            margin-top: 8px;
-            height: 48px;
-            font-size: 14px;
-        }
-        .login-card .error-msg {
-            color: #dc2626;
-            font-size: 13px;
-            margin-top: 12px;
-            min-height: 20px;
+        .login-card .auth-section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(to right, var(--accent), var(--accent-secondary));
+            border-radius: 14px 14px 0 0;
+            opacity: 0.4;
         }
         .login-card .auth-header {
             font-family: var(--font-display);
-            font-size: 24px;
-            text-align: left;
-            margin-bottom: 24px;
+            font-size: 22px;
+            font-weight: 400;
             font-style: italic;
             letter-spacing: -0.01em;
+            margin-bottom: 20px;
+            color: var(--foreground);
         }
         .login-card .auth-row {
             display: flex;
@@ -647,8 +609,9 @@
             font-family: var(--font-mono);
             font-size: 12px;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.12em;
             color: var(--muted-foreground);
+            font-weight: 500;
         }
 
         /* Toggle Switch */
@@ -658,6 +621,7 @@
             height: 24px;
             cursor: pointer;
             display: inline-block;
+            flex-shrink: 0;
         }
         .switch-container input {
             opacity: 0;
@@ -682,7 +646,7 @@
             border-radius: 50%;
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-            transition: transform 0.25s ease;
+            transition: transform 0.25s var(--ease-out);
         }
         .switch-container input:checked + .switch-knob {
             background: linear-gradient(to right, var(--accent), var(--accent-secondary));
@@ -690,10 +654,11 @@
         .switch-container input:checked + .switch-knob::before {
             transform: translateX(20px);
         }
+
         .login-card textarea {
             width: 100%;
             padding: 14px;
-            background: var(--background);
+            background: var(--card);
             border: 1px solid var(--border);
             border-radius: 12px;
             color: var(--foreground);
@@ -709,6 +674,18 @@
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0,82,255,0.1);
         }
+        .login-card textarea::placeholder {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .login-card .btn {
+            width: 100%;
+            margin-top: 16px;
+            height: 48px;
+            font-size: 14px;
+            letter-spacing: 0.02em;
+        }
         .login-card .token-status {
             margin-top: 12px;
             font-family: var(--font-mono);
@@ -717,45 +694,54 @@
             font-style: italic;
             color: var(--muted-foreground);
             min-height: 20px;
+            transition: all 0.2s ease;
         }
+        .login-card .token-status.error { color: #dc2626; }
 
         /* ─── Entrance Animations ─── */
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(24px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
         .animate-in {
-            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation: fadeInUp 0.6s var(--ease-out) both;
         }
         .animate-in-delay-1 { animation-delay: 0.1s; }
         .animate-in-delay-2 { animation-delay: 0.2s; }
         .animate-in-delay-3 { animation-delay: 0.3s; }
         .animate-in-delay-4 { animation-delay: 0.4s; }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 600px) {
+            .container { padding: 16px; }
+            .app-header { flex-direction: column; gap: 12px; text-align: center; }
+            .login-card { padding: 32px 24px 28px; }
+            .login-card .auth-section { padding: 18px; }
+            .stat-card .value { font-size: 26px; }
+        }
     </style>
 </head>
 <body>
     <!-- Login Overlay -->
     <div class="login-overlay" id="loginOverlay">
-        <div class="login-card" style="text-align:left;width:480px">
-            <h1 style="text-align:center;margin-bottom:32px">attendance <span class="gradient-text">service</span></h1>
+        <div class="login-card">
+            <div class="logo">attendance <span class="gradient-text">service</span></div>
 
-            <div class="auth-header">I. Ủy quyền</div>
+            <div class="auth-section">
+                <div class="auth-header">I. Ủy quyền</div>
 
-            <div class="auth-row">
-                <span class="auth-label">Người mang JWT</span>
-                <label class="switch-container">
-                    <input type="checkbox" id="useAuthToggle" checked>
-                    <span class="switch-knob"></span>
-                </label>
+                <div class="auth-row">
+                    <span class="auth-label">Người mang JWT</span>
+                    <label class="switch-container">
+                        <input type="checkbox" id="useAuthToggle" checked>
+                        <span class="switch-knob"></span>
+                    </label>
+                </div>
+
+                <textarea id="jwtToken" rows="3" placeholder="Đang chờ mã thông báo..." readonly></textarea>
+
+                <button class="btn btn-primary" onclick="generateToken()" id="genTokenBtn">
+                    Nhận Token
+                </button>
+
+                <div class="token-status" id="tokenStatus"></div>
             </div>
-
-            <textarea id="jwtToken" rows="3" placeholder="Đang chờ mã thông báo..." readonly></textarea>
-
-            <button class="btn btn-primary" onclick="generateToken()" id="genTokenBtn" style="margin-top:16px">
-                Nhận Token
-            </button>
-
-            <div class="token-status" id="tokenStatus"></div>
         </div>
     </div>
 
@@ -784,7 +770,7 @@
 
         <!-- Dashboard -->
         <div class="section-label animate-in animate-in-delay-1">
-            <span class="sd-dot"></span>
+            <span class="dot"></span>
             <span>Overview</span>
         </div>
         <div class="stats-grid" id="dashboardStats">
@@ -1001,7 +987,7 @@
 
         <!-- Summary Report -->
         <div class="section-label animate-in animate-in-delay-4">
-            <span class="sd-dot"></span>
+            <span class="dot"></span>
             <span>Reports</span>
         </div>
         <div class="card animate-in animate-in-delay-4" style="margin-bottom:40px;">
@@ -1038,18 +1024,13 @@
         function showLogin() {
             document.getElementById('loginOverlay').classList.remove('hidden');
         }
-
         function hideLogin() {
             document.getElementById('loginOverlay').classList.add('hidden');
         }
-
-        function setToken(tokenValue) {
-            token = tokenValue;
-            if (token) {
-                localStorage.setItem('jwt_token', token);
-            } else {
-                localStorage.removeItem('jwt_token');
-            }
+        function setToken(v) {
+            token = v;
+            if (v) localStorage.setItem('jwt_token', v);
+            else localStorage.removeItem('jwt_token');
             localStorage.removeItem('jwt_expires');
         }
 
@@ -1063,6 +1044,7 @@
             btn.disabled = true;
             ta.value = '';
             status.textContent = 'Đang lấy token...';
+            status.className = 'token-status';
 
             try {
                 const res = await fetch(base + '/api/Auth/login', {
@@ -1082,9 +1064,10 @@
                     hideLogin();
                     toast('Authenticated successfully', 'success');
                     initApp();
-                }, 600);
+                }, 500);
             } catch (e) {
                 status.textContent = 'Lỗi: ' + (e.message || 'Unknown');
+                status.className = 'token-status error';
                 btn.disabled = false;
             }
         }
@@ -1098,8 +1081,7 @@
         });
 
         function logout() {
-            token = null;
-            tokenExpires = null;
+            token = null; tokenExpires = null;
             localStorage.removeItem('jwt_token');
             localStorage.removeItem('jwt_expires');
             showLogin();
@@ -1118,12 +1100,8 @@
             const parent = el.closest('.card-body');
             parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
-            const targets = parent.querySelectorAll('[id]');
-            const groupPrefix = tabId.split('-')[0] + '-';
-            targets.forEach(e => {
-                if (e.id.startsWith('att-') || e.id.startsWith('leave-') || e.id.startsWith('ot-') || e.id.startsWith('hol-')) {
-                    e.style.display = 'none';
-                }
+            parent.querySelectorAll('[id]').forEach(e => {
+                if (/^(att-|leave-|ot-|hol-)/.test(e.id)) e.style.display = 'none';
             });
             document.getElementById(tabId).style.display = 'block';
         }
@@ -1145,10 +1123,7 @@
             if (body) opts.body = JSON.stringify(body);
             try {
                 const res = await fetch(base + url, opts);
-                if (res.status === 401) {
-                    logout();
-                    throw { status: 401, data: { message: 'Session expired. Please sign in again.' } };
-                }
+                if (res.status === 401) { logout(); throw { status: 401, data: { message: 'Session expired' } }; }
                 const text = await res.text();
                 let data;
                 try { data = JSON.parse(text); } catch { data = text; }
@@ -1162,7 +1137,7 @@
 
         async function testConnection() {
             try {
-                const data = await api('GET', '/api/AttendanceRecords?fromDate=2024-01-01&toDate=2024-01-02');
+                await api('GET', '/api/AttendanceRecords?fromDate=2024-01-01&toDate=2024-01-02');
                 const badge = document.getElementById('connectionStatus');
                 badge.innerHTML = '<span class="dot"></span> connected';
                 badge.className = 'status-badge online';
@@ -1173,9 +1148,7 @@
                 const badge = document.getElementById('connectionStatus');
                 badge.innerHTML = '<span class="dot"></span> disconnected';
                 badge.className = 'status-badge offline';
-                if (e.status !== 401) {
-                    toast('Connection failed: ' + (e.data?.message || e.message), 'error');
-                }
+                if (e.status !== 401) toast('Connection failed: ' + (e.data?.message || e.message), 'error');
             }
         }
 
@@ -1190,35 +1163,29 @@
         async function loadEmployees() {
             try {
                 const employees = await api('GET', '/api/HRCore/employees');
-                const selects = ['checkin-emp', 'att-emp-select', 'leave-emp', 'leave-filter-emp', 'ot-emp', 'ot-filter-emp'];
-                selects.forEach(id => {
+                const ids = ['checkin-emp', 'att-emp-select', 'leave-emp', 'leave-filter-emp', 'ot-emp', 'ot-filter-emp'];
+                ids.forEach(id => {
                     const sel = document.getElementById(id);
                     if (!sel) return;
                     sel.innerHTML = '<option value="">Select employee...</option>';
-                    if (Array.isArray(employees)) {
-                        employees.forEach(e => {
-                            sel.innerHTML += `<option value="${e.id}">[${e.employeeCode || 'N/A'}] ${e.fullName}${e.departmentName ? ' - ' + e.departmentName : ''}</option>`;
-                        });
-                    }
+                    if (Array.isArray(employees)) employees.forEach(e => {
+                        sel.innerHTML += `<option value="${e.id}">[${e.employeeCode || 'N/A'}] ${e.fullName}${e.departmentName ? ' - ' + e.departmentName : ''}</option>`;
+                    });
                 });
-            } catch (e) {
-                console.log('Employee load failed:', e.message);
-            }
+            } catch (e) { console.log('Employee load failed:', e.message); }
         }
 
         async function syncHRCore() {
             const btn = event.target; btn.disabled = true;
-            const originalText = btn.textContent;
+            const t = btn.textContent;
             btn.innerHTML = '<span class="spinner"></span> syncing...';
             try {
                 const res = await api('POST', '/api/HRCore/sync');
                 toast(`Synced ${res.count} employees`, 'success');
                 loadEmployees();
                 showOutput('output-checkin', res);
-            } catch (e) {
-                toast('Sync failed: ' + (e.data?.message || e.message), 'error');
-            }
-            btn.disabled = false; btn.textContent = originalText;
+            } catch (e) { toast('Sync failed: ' + (e.data?.message || e.message), 'error'); }
+            btn.disabled = false; btn.textContent = t;
         }
 
         // ─── Dashboard ──────────────────────────────────────────
@@ -1243,10 +1210,7 @@
                 showOutput('output-checkin', data);
                 toast(`Check-in: ${data.employeeName} - ${data.status}`, 'success');
                 loadDashboard();
-            } catch (e) {
-                showOutput('output-checkin', e.data || e.message);
-                toast(e.data?.message || 'Check-in failed', 'error');
-            }
+            } catch (e) { showOutput('output-checkin', e.data || e.message); toast(e.data?.message || 'Check-in failed', 'error'); }
         }
 
         async function checkOut() {
@@ -1260,43 +1224,32 @@
                 showOutput('output-checkin', data);
                 toast(`Check-out: ${data.employeeName} - ${data.workedHours}h`, 'success');
                 loadDashboard();
-            } catch (e) {
-                showOutput('output-checkin', e.data || e.message);
-                toast(e.data?.message || 'Check-out failed', 'error');
-            }
+            } catch (e) { showOutput('output-checkin', e.data || e.message); toast(e.data?.message || 'Check-out failed', 'error'); }
         }
 
         async function listAttendance() {
-            const params = [];
+            const p = [];
             const from = document.getElementById('att-from').value;
             const to = document.getElementById('att-to').value;
             const status = document.getElementById('att-status').value;
-            if (from) params.push(`fromDate=${new Date(from).toISOString()}`);
-            if (to) params.push(`toDate=${new Date(to).toISOString()}`);
-            if (status) params.push(`status=${status}`);
-            const qs = params.length ? '?' + params.join('&') : '';
-            try {
-                const data = await api('GET', '/api/AttendanceRecords' + qs);
-                showOutput('output-att-list', data);
-            } catch (e) {
-                showOutput('output-att-list', e.data || e.message);
-            }
+            if (from) p.push(`fromDate=${new Date(from).toISOString()}`);
+            if (to) p.push(`toDate=${new Date(to).toISOString()}`);
+            if (status) p.push(`status=${status}`);
+            const qs = p.length ? '?' + p.join('&') : '';
+            try { showOutput('output-att-list', await api('GET', '/api/AttendanceRecords' + qs)); }
+            catch (e) { showOutput('output-att-list', e.data || e.message); }
         }
 
         async function getEmployeeAttendance() {
             const empId = document.getElementById('att-emp-select').value;
             if (!empId) return toast('Select an employee', 'error');
-            try {
-                const data = await api('GET', `/api/AttendanceRecords/employee/${empId}/history`);
-                showOutput('output-att-emp', data);
-            } catch (e) {
-                showOutput('output-att-emp', e.data || e.message);
-            }
+            try { showOutput('output-att-emp', await api('GET', `/api/AttendanceRecords/employee/${empId}/history`)); }
+            catch (e) { showOutput('output-att-emp', e.data || e.message); }
         }
 
         function refreshAttendance() {
-            const tab = document.querySelector('#att-list .tab.active') ? 'att-list' : 'att-checkin';
-            if (tab === 'att-list') listAttendance();
+            const t = document.querySelector('#att-list .tab.active') ? 'att-list' : 'att-checkin';
+            if (t === 'att-list') listAttendance();
         }
 
         // ─── Leave ──────────────────────────────────────────────
@@ -1317,27 +1270,19 @@
                 });
                 showOutput('output-leave', data);
                 toast('Leave request submitted', 'success');
-            } catch (e) {
-                showOutput('output-leave', e.data || e.message);
-                toast(e.data?.message || 'Failed', 'error');
-            }
+            } catch (e) { showOutput('output-leave', e.data || e.message); toast(e.data?.message || 'Failed', 'error'); }
         }
 
         async function listLeaves() {
-            const params = [];
+            const p = [];
             const emp = document.getElementById('leave-filter-emp').value;
             const status = document.getElementById('leave-filter-status').value;
-            if (emp) params.push(`employeeId=${emp}`);
-            if (status) params.push(`status=${status}`);
-            const qs = params.length ? '?' + params.join('&') : '';
-            try {
-                const data = await api('GET', '/api/LeaveRequests' + qs);
-                showOutput('output-leave-list', data);
-            } catch (e) {
-                showOutput('output-leave-list', e.data || e.message);
-            }
+            if (emp) p.push(`employeeId=${emp}`);
+            if (status) p.push(`status=${status}`);
+            const qs = p.length ? '?' + p.join('&') : '';
+            try { showOutput('output-leave-list', await api('GET', '/api/LeaveRequests' + qs)); }
+            catch (e) { showOutput('output-leave-list', e.data || e.message); }
         }
-
         function refreshLeaves() { listLeaves(); }
 
         // ─── Overtime ───────────────────────────────────────────
@@ -1358,24 +1303,15 @@
                 });
                 showOutput('output-ot', data);
                 toast('Overtime recorded', 'success');
-            } catch (e) {
-                showOutput('output-ot', e.data || e.message);
-                toast(e.data?.message || 'Failed', 'error');
-            }
+            } catch (e) { showOutput('output-ot', e.data || e.message); toast(e.data?.message || 'Failed', 'error'); }
         }
 
         async function listOvertime() {
             const emp = document.getElementById('ot-filter-emp').value;
-            let url = '/api/OvertimeRecords';
-            if (emp) url += `?employeeId=${emp}`;
-            try {
-                const data = await api('GET', url);
-                showOutput('output-ot-list', data);
-            } catch (e) {
-                showOutput('output-ot-list', e.data || e.message);
-            }
+            const url = '/api/OvertimeRecords' + (emp ? `?employeeId=${emp}` : '');
+            try { showOutput('output-ot-list', await api('GET', url)); }
+            catch (e) { showOutput('output-ot-list', e.data || e.message); }
         }
-
         function refreshOvertime() { listOvertime(); }
 
         // ─── Holidays ───────────────────────────────────────────
@@ -1390,46 +1326,30 @@
                 });
                 showOutput('output-hol', data);
                 toast('Holiday added', 'success');
-            } catch (e) {
-                showOutput('output-hol', e.data || e.message);
-                toast('Failed', 'error');
-            }
+            } catch (e) { showOutput('output-hol', e.data || e.message); toast('Failed', 'error'); }
         }
 
         async function listHolidays() {
-            try {
-                const data = await api('GET', '/api/Holidays');
-                showOutput('output-hol-list', data);
-            } catch (e) {
-                showOutput('output-hol-list', e.data || e.message);
-            }
+            try { showOutput('output-hol-list', await api('GET', '/api/Holidays')); }
+            catch (e) { showOutput('output-hol-list', e.data || e.message); }
         }
-
         function refreshHolidays() { listHolidays(); }
 
         // ─── Summary ────────────────────────────────────────────
         async function getSummaryByEmployee() {
-            const params = [];
+            const p = [];
             const from = document.getElementById('summary-from').value;
             const to = document.getElementById('summary-to').value;
-            if (from) params.push(`fromDate=${new Date(from).toISOString()}`);
-            if (to) params.push(`toDate=${new Date(to).toISOString()}`);
-            const qs = params.length ? '?' + params.join('&') : '';
-            try {
-                const data = await api('GET', '/api/AttendanceRecords/summary/by-employee' + qs);
-                showOutput('output-summary', data);
-            } catch (e) {
-                showOutput('output-summary', e.data || e.message);
-            }
+            if (from) p.push(`fromDate=${new Date(from).toISOString()}`);
+            if (to) p.push(`toDate=${new Date(to).toISOString()}`);
+            const qs = p.length ? '?' + p.join('&') : '';
+            try { showOutput('output-summary', await api('GET', '/api/AttendanceRecords/summary/by-employee' + qs)); }
+            catch (e) { showOutput('output-summary', e.data || e.message); }
         }
 
         // ─── Init ───────────────────────────────────────────────
-        if (isTokenValid()) {
-            hideLogin();
-            initApp();
-        } else {
-            showLogin();
-        }
+        if (isTokenValid()) { hideLogin(); initApp(); }
+        else { showLogin(); }
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !document.getElementById('loginOverlay').classList.contains('hidden')) {
