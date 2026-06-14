@@ -27,7 +27,8 @@ public class HRCoreService
         var baseUrl = _config["HRCore:BaseUrl"] ?? "https://hrcore-production.up.railway.app";
         try 
         {
-            var response = await _http.PostAsync($"{baseUrl}/api/TestAuth/login", null);
+            var content = new StringContent("{\"password\":\"123456\"}", System.Text.Encoding.UTF8, "application/json");
+            var response = await _http.PostAsync($"{baseUrl}/api/TestAuth/login", content);
             if (!response.IsSuccessStatusCode) return "";
 
             var json = await response.Content.ReadAsStringAsync();
