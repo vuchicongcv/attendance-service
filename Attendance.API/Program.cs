@@ -69,7 +69,14 @@ app.UseExceptionHandler(exceptionHandlerApp =>
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         context.Response.Headers["Access-Control-Allow-Origin"] = "*";
-        await context.Response.WriteAsync("{\"error\":\"Internal server error\"}");
+        
+        var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+        var ex = exceptionHandlerPathFeature?.Error;
+        
+        var errorMsg = ex != null ? ex.ToString() : "Unknown internal server error";
+        var json = System.Text.Json.JsonSerializer.Serialize(new { error = errorMsg });
+        
+        await context.Response.WriteAsync(json);
     });
 });
 
