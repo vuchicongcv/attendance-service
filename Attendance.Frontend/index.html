@@ -646,6 +646,52 @@
             height: 14px;
             border-width: 2px;
         }
+        .login-card .login-tabs {
+            display: flex;
+            gap: 3px;
+            margin-bottom: 24px;
+            background: var(--muted);
+            border-radius: 10px;
+            padding: 3px;
+        }
+        .login-card .login-tab {
+            flex: 1;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: var(--muted-foreground);
+            text-align: center;
+            transition: all 0.25s ease;
+            font-family: var(--font-ui);
+        }
+        .login-card .login-tab.active {
+            background: var(--card);
+            color: var(--accent);
+            box-shadow: var(--shadow-sm);
+        }
+        .login-card .login-tab:hover:not(.active) { color: var(--foreground); }
+        .login-card textarea {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--foreground);
+            font-size: 11px;
+            font-family: var(--font-mono);
+            resize: vertical;
+            min-height: 100px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .login-card textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0,82,255,0.1);
+        }
 
         /* ─── Entrance Animations ─── */
         @keyframes fadeInUp {
@@ -667,19 +713,35 @@
         <div class="login-card">
             <h1>attendance <span class="gradient-text">service</span></h1>
             <p class="sub">Sign in to continue</p>
-            <div class="form-group">
-                <label>Username</label>
-                <input id="login-username" type="text" placeholder="admin" value="admin" autocomplete="off">
+            <div class="login-tabs">
+                <div class="login-tab active" onclick="switchLoginTab(this, 'login-signin')">Sign In</div>
+                <div class="login-tab" onclick="switchLoginTab(this, 'login-token')">Token</div>
             </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input id="login-password" type="password" placeholder="••••••" value="admin123" autocomplete="off">
+
+            <div id="login-signin">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input id="login-username" type="text" placeholder="admin" value="admin" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input id="login-password" type="password" placeholder="••••••" value="admin123" autocomplete="off">
+                </div>
+                <div id="acquireStatus" class="acquire-row" style="display:none">
+                    <span class="spinner"></span>
+                    <span>Acquiring token...</span>
+                </div>
+                <button class="btn btn-primary" onclick="acquireToken()" id="loginBtn">Sign In</button>
             </div>
-            <div id="acquireStatus" class="acquire-row" style="display:none">
-                <span class="spinner"></span>
-                <span>Acquiring token...</span>
+
+            <div id="login-token" style="display:none">
+                <div class="form-group">
+                    <label>Paste your JWT token</label>
+                    <textarea id="login-token-input" placeholder="eyJhbGciOiJIUzI1NiIs..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="usePastedToken()">Use Token</button>
             </div>
-            <button class="btn btn-primary" onclick="acquireToken()" id="loginBtn">Sign In</button>
+
             <div class="error-msg" id="loginError"></div>
         </div>
     </div>
@@ -955,8 +1017,9 @@
         let tokenExpires = localStorage.getItem('jwt_expires') || null;
 
         function isTokenValid() {
-            if (!token || !tokenExpires) return false;
-            return Date.now() < parseInt(tokenExpires);
+            if (!token) return false;
+            if (tokenExpires) return Date.now() < parseInt(tokenExpires);
+            return true;
         }
 
         function showLogin() {
@@ -965,6 +1028,39 @@
 
         function hideLogin() {
             document.getElementById('loginOverlay').classList.add('hidden');
+        }
+
+        function switchLoginTab(el, tabId) {
+            document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById('login-signin').style.display = 'none';
+            document.getElementById('login-token').style.display = 'none';
+            document.getElementById(tabId).style.display = 'block';
+            document.getElementById('loginError').textContent = '';
+        }
+
+        function setToken(tokenValue, expiresMs) {
+            token = tokenValue;
+            if (expiresMs) {
+                localStorage.setItem('jwt_token', token);
+                localStorage.setItem('jwt_expires', String(expiresMs));
+            } else {
+                localStorage.setItem('jwt_token', token);
+                localStorage.removeItem('jwt_expires');
+            }
+        }
+
+        function usePastedToken() {
+            const raw = document.getElementById('login-token-input').value.trim();
+            const errorEl = document.getElementById('loginError');
+            if (!raw) {
+                errorEl.textContent = 'Paste your JWT token';
+                return;
+            }
+            setToken(raw, null);
+            hideLogin();
+            toast('Token applied', 'success');
+            initApp();
         }
 
         async function acquireToken() {
@@ -993,10 +1089,8 @@
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || 'Login failed');
 
-                token = data.token;
                 const expiresMs = new Date(data.expiresAt).getTime();
-                localStorage.setItem('jwt_token', token);
-                localStorage.setItem('jwt_expires', String(expiresMs));
+                setToken(data.token, expiresMs);
 
                 statusEl.style.display = 'none';
                 btn.disabled = false;
