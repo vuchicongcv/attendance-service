@@ -106,8 +106,8 @@ public class AttendanceRecordsController : ControllerBase
         {
             var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             var jwtEmpId = GetJwtEmployeeId();
-            if (userRole == "Employee" && request.EmployeeId != jwtEmpId)
-                return Forbid("Employees can only check in for themselves.");
+            if (userRole == "Employee" && jwtEmpId.HasValue && request.EmployeeId != jwtEmpId)
+                return StatusCode(403, new { message = "Employees can only check in for themselves." });
 
             var emp = await _hr.GetEmployeeAsync(request.EmployeeId);
             if (emp == null)
