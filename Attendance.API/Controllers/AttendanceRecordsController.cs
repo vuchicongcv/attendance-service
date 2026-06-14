@@ -102,56 +102,63 @@ public class AttendanceRecordsController : ControllerBase
     [HttpPost("check-in")]
     public async Task<ActionResult<AttendanceRecordDto>> CheckIn(CheckInRequest request)
     {
-        var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-        var jwtEmpId = GetJwtEmployeeId();
-        if (userRole == "Employee" && request.EmployeeId != jwtEmpId)
-            return Forbid("Employees can only check in for themselves.");
-
-        var emp = await _hr.GetEmployeeAsync(request.EmployeeId);
-        if (emp == null)
-            return BadRequest(new { message = "Employee not found. Sync employees from HRCore first." });
-
-        var today = GetVnTime(request.CheckIn).Date;
-        var existing = await _db.AttendanceRecords
-            .FirstOrDefaultAsync(a => a.EmployeeId == request.EmployeeId && a.Date == today);
-
-        if (existing != null)
-            return Conflict(new { message = $"Already checked in at {existing.CheckIn:HH:mm:ss}" });
-
-        Shift? shift = null;
-        if (request.ShiftId.HasValue)
-            shift = await _db.Shifts.FindAsync(request.ShiftId.Value);
-
-        var lateThreshold = shift != null
-            ? shift.StartTime.Add(TimeSpan.FromMinutes(shift.AllowedLateMinutes))
-            : new TimeSpan(8, 31, 0);
-
-        var checkInTime = request.CheckIn.TimeOfDay;
-        var status = checkInTime > lateThreshold
-            ? AttendanceStatus.Late
-            : AttendanceStatus.Present;
-
-        var record = new AttendanceRecord
-        {
-            EmployeeId = request.EmployeeId,
-            Date = today,
-            ShiftId = request.ShiftId,
-            CheckIn = request.CheckIn,
-            Status = status,
-            Note = request.Note
-        };
-
         try
         {
-            _db.AttendanceRecords.Add(record);
-            await _db.SaveChangesAsync();
-        }
-        catch (DbUpdateException)
-        {
-            return Conflict(new { message = $"Already checked in for {today:yyyy-MM-dd}" });
-        }
+            var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            var jwtEmpId = GetJwtEmployeeId();
+            if (userRole == "Employee" && request.EmployeeId != jwtEmpId)
+                return Forbid("Employees can only check in for themselves.");
 
-        return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, emp, shift));
+            var emp = await _hr.GetEmployeeAsync(request.EmployeeId);
+            if (emp == null)
+                return BadRequest(new { message = "Employee not found. Sync employees from HRCore first." });
+
+            var today = GetVnTime(request.CheckIn).Date;
+            var existing = await _db.AttendanceRecords
+                .FirstOrDefaultAsync(a => a.EmployeeId == request.EmployeeId && a.Date == today);
+
+            if (existing != null)
+                return Conflict(new { message = $"Already checked in at {existing.CheckIn:HH:mm:ss}" });
+
+            Shift? shift = null;
+            if (request.ShiftId.HasValue)
+                shift = await _db.Shifts.FindAsync(request.ShiftId.Value);
+
+            var lateThreshold = shift != null
+                ? shift.StartTime.Add(TimeSpan.FromMinutes(shift.AllowedLateMinutes))
+                : new TimeSpan(8, 31, 0);
+
+            var checkInTime = request.CheckIn.TimeOfDay;
+            var status = checkInTime > lateThreshold
+                ? AttendanceStatus.Late
+                : AttendanceStatus.Present;
+
+            var record = new AttendanceRecord
+            {
+                EmployeeId = request.EmployeeId,
+                Date = today,
+                ShiftId = request.ShiftId,
+                CheckIn = request.CheckIn,
+                Status = status,
+                Note = request.Note
+            };
+
+            try
+            {
+                _db.AttendanceRecords.Add(record);
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                return Conflict(new { message = $"Already checked in for {today:yyyy-MM-dd}" });
+            }
+
+            return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, emp, shift));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "CheckIn crashed", error = ex.ToString() });
+        }
     }
 
     [HttpPatch("{id}/check-out")]
