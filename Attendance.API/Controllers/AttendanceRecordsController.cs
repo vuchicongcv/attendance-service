@@ -138,12 +138,12 @@ public class AttendanceRecordsController : ControllerBase
             var existing = await _db.AttendanceRecords
                 .FirstOrDefaultAsync(a => a.EmployeeId == request.EmployeeId && a.Date == today);
 
-            if (existing != null)
-                return Conflict(new { message = $"Already checked in at {existing.CheckIn:HH:mm:ss}" });
-
             Shift? shift = null;
             if (request.ShiftId.HasValue)
                 shift = await _db.Shifts.FindAsync(request.ShiftId.Value);
+
+            if (existing != null)
+                return Ok(MapToDto(existing, emp, shift));
 
             var lateThreshold = shift != null
                 ? shift.StartTime.Add(TimeSpan.FromMinutes(shift.AllowedLateMinutes))
