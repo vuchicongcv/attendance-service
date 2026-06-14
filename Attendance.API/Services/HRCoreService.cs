@@ -87,16 +87,28 @@ public class HRCoreService
         foreach (var emp in employees)
         {
             var id = TryGetGuid(emp, "id");
-            if (id == null) continue;
+            var code = GetString(emp, "employeeCode");
+            if (id == null || string.IsNullOrEmpty(code)) continue;
 
             var info = await _db.EmployeeInfo.FindAsync(id.Value);
             if (info == null)
             {
+                var existing = await _db.EmployeeInfo.FirstOrDefaultAsync(e => e.EmployeeCode == code);
+                if (existing != null)
+                {
+                    await _db.Database.ExecuteSqlRawAsync($"UPDATE \"AttendanceRecords\" SET \"EmployeeId\" = '{id.Value}' WHERE \"EmployeeId\" = '{existing.Id}'");
+                    await _db.Database.ExecuteSqlRawAsync($"UPDATE \"LeaveRequests\" SET \"EmployeeId\" = '{id.Value}' WHERE \"EmployeeId\" = '{existing.Id}'");
+                    await _db.Database.ExecuteSqlRawAsync($"UPDATE \"OvertimeRecords\" SET \"EmployeeId\" = '{id.Value}' WHERE \"EmployeeId\" = '{existing.Id}'");
+                    
+                    _db.EmployeeInfo.Remove(existing);
+                    await _db.SaveChangesAsync();
+                }
+
                 info = new EmployeeInfo { Id = id.Value };
                 _db.EmployeeInfo.Add(info);
             }
 
-            info.EmployeeCode = GetString(emp, "employeeCode") ?? info.EmployeeCode;
+            info.EmployeeCode = code;
             info.FullName = GetString(emp, "fullName") ?? info.FullName;
             info.Email = GetString(emp, "email") ?? info.Email;
             info.DepartmentId = TryGetGuid(emp, "departmentId");
