@@ -629,23 +629,94 @@
             margin-top: 12px;
             min-height: 20px;
         }
+        .login-card .auth-header {
+            font-family: var(--font-display);
+            font-size: 24px;
+            text-align: left;
+            margin-bottom: 24px;
+            font-style: italic;
+            letter-spacing: -0.01em;
+        }
+        .login-card .auth-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .login-card .auth-label {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted-foreground);
+        }
+
+        /* Toggle Switch */
+        .switch-container {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .switch-container input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+        .switch-knob {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 24px;
+            transition: background 0.25s ease;
+        }
+        .switch-knob::before {
+            content: '';
+            position: absolute;
+            left: 3px;
+            top: 3px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            transition: transform 0.25s ease;
+        }
+        .switch-container input:checked + .switch-knob {
+            background: linear-gradient(to right, var(--accent), var(--accent-secondary));
+        }
+        .switch-container input:checked + .switch-knob::before {
+            transform: translateX(20px);
+        }
         .login-card textarea {
             width: 100%;
-            padding: 12px 14px;
+            padding: 14px;
             background: var(--background);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 12px;
             color: var(--foreground);
-            font-size: 11px;
+            font-size: 12px;
             font-family: var(--font-mono);
-            resize: vertical;
-            min-height: 100px;
+            resize: none;
+            min-height: 80px;
             transition: border-color 0.2s, box-shadow 0.2s;
+            line-height: 1.5;
         }
         .login-card textarea:focus {
             outline: none;
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0,82,255,0.1);
+        }
+        .login-card .token-status {
+            margin-top: 12px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            text-align: center;
+            font-style: italic;
+            color: var(--muted-foreground);
+            min-height: 20px;
         }
 
         /* ─── Entrance Animations ─── */
@@ -665,18 +736,26 @@
 <body>
     <!-- Login Overlay -->
     <div class="login-overlay" id="loginOverlay">
-        <div class="login-card">
-            <h1>attendance <span class="gradient-text">service</span></h1>
-            <p class="sub">Sign in to continue</p>
-            <div id="login-token">
-                <div class="form-group">
-                    <label>Paste your JWT token</label>
-                    <textarea id="login-token-input" placeholder="eyJhbGciOiJIUzI1NiIs..."></textarea>
-                </div>
-                <button class="btn btn-primary" onclick="usePastedToken()">Use Token</button>
+        <div class="login-card" style="text-align:left;width:480px">
+            <h1 style="text-align:center;margin-bottom:32px">attendance <span class="gradient-text">service</span></h1>
+
+            <div class="auth-header">I. Ủy quyền</div>
+
+            <div class="auth-row">
+                <span class="auth-label">Người mang JWT</span>
+                <label class="switch-container">
+                    <input type="checkbox" id="useAuthToggle" checked>
+                    <span class="switch-knob"></span>
+                </label>
             </div>
 
-            <div class="error-msg" id="loginError"></div>
+            <textarea id="jwtToken" rows="3" placeholder="Đang chờ mã thông báo..." readonly></textarea>
+
+            <button class="btn btn-primary" onclick="generateToken()" id="genTokenBtn" style="margin-top:16px">
+                Nhận Token
+            </button>
+
+            <div class="token-status" id="tokenStatus"></div>
         </div>
     </div>
 
@@ -966,22 +1045,57 @@
 
         function setToken(tokenValue) {
             token = tokenValue;
-            localStorage.setItem('jwt_token', token);
+            if (token) {
+                localStorage.setItem('jwt_token', token);
+            } else {
+                localStorage.removeItem('jwt_token');
+            }
             localStorage.removeItem('jwt_expires');
         }
 
-        function usePastedToken() {
-            const raw = document.getElementById('login-token-input').value.trim();
-            const errorEl = document.getElementById('loginError');
-            if (!raw) {
-                errorEl.textContent = 'Paste your JWT token';
-                return;
+        async function generateToken() {
+            const base = getBase();
+            const btn = document.getElementById('genTokenBtn');
+            const ta = document.getElementById('jwtToken');
+            const status = document.getElementById('tokenStatus');
+            const toggle = document.getElementById('useAuthToggle');
+
+            btn.disabled = true;
+            ta.value = '';
+            status.textContent = 'Đang lấy token...';
+
+            try {
+                const res = await fetch(base + '/api/Auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Failed');
+
+                ta.value = data.token;
+                if (toggle.checked) setToken(data.token);
+                status.textContent = 'Token sẵn sàng';
+                btn.disabled = false;
+
+                setTimeout(() => {
+                    hideLogin();
+                    toast('Authenticated successfully', 'success');
+                    initApp();
+                }, 600);
+            } catch (e) {
+                status.textContent = 'Lỗi: ' + (e.message || 'Unknown');
+                btn.disabled = false;
             }
-            setToken(raw);
-            hideLogin();
-            toast('Token applied', 'success');
-            initApp();
         }
+
+        document.getElementById('useAuthToggle').addEventListener('change', function() {
+            if (!this.checked) setToken(null);
+            else {
+                const ta = document.getElementById('jwtToken');
+                if (ta.value.trim()) setToken(ta.value.trim());
+            }
+        });
 
         function logout() {
             token = null;
@@ -1317,8 +1431,10 @@
             showLogin();
         }
 
-        document.getElementById('login-token-input').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); usePastedToken(); }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !document.getElementById('loginOverlay').classList.contains('hidden')) {
+                generateToken();
+            }
         });
     </script>
 </body>
