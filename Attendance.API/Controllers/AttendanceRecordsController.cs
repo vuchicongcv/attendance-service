@@ -141,8 +141,15 @@ public class AttendanceRecordsController : ControllerBase
             Note = request.Note
         };
 
-        _db.AttendanceRecords.Add(record);
-        await _db.SaveChangesAsync();
+        try
+        {
+            _db.AttendanceRecords.Add(record);
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(new { message = $"Already checked in for {today:yyyy-MM-dd}" });
+        }
 
         return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, emp, shift));
     }

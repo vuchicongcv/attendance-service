@@ -1309,8 +1309,11 @@
 
         // ─── Attendance ─────────────────────────────────────────
         async function checkIn() {
+            const btn = event.target;
             const empId = document.getElementById('checkin-emp').value;
             if (!empId) return toast('Select an employee', 'error');
+            
+            btn.disabled = true;
             try {
                 const data = await api('POST', '/api/AttendanceRecords/check-in', {
                     employeeId: empId, checkIn: new Date().toISOString()
@@ -1319,11 +1322,15 @@
                 toast(`Check-in: ${data.employeeName} - ${data.status}`, 'success');
                 loadDashboard();
             } catch (e) { showOutput('output-checkin', e.data || e.message); toast(e.data?.message || 'Check-in failed', 'error'); }
+            finally { btn.disabled = false; }
         }
 
         async function checkOut() {
+            const btn = event.target;
             const empId = document.getElementById('checkin-emp').value;
             if (!empId) return toast('Select an employee', 'error');
+            
+            btn.disabled = true;
             try {
                 const today = await api('GET', `/api/AttendanceRecords/employee/${empId}/today`);
                 const data = await api('PATCH', `/api/AttendanceRecords/${today.id}/check-out`, {
