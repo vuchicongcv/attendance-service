@@ -1,4 +1,7 @@
+using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Attendance.API.Data;
 using Attendance.API.Services;
 
@@ -28,6 +31,24 @@ builder.Services.AddHttpClient<HRCoreService>(client =>
 });
 
 builder.Services.AddSingleton<AttendanceEventService>();
+
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "ThisIsASecureKeyForAttendanceAPI2024!@#$%^&*()";
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
 {
@@ -83,6 +104,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

@@ -88,6 +88,14 @@ public class HRCoreService
             synced.Add(info);
         }
 
+        var syncedIds = synced.Select(e => e.Id).ToHashSet();
+        var oldActive = await _db.EmployeeInfo.Where(e => e.IsActive && !syncedIds.Contains(e.Id)).ToListAsync();
+        foreach (var emp in oldActive)
+        {
+            emp.IsActive = false;
+            emp.UpdatedAt = DateTime.UtcNow;
+        }
+
         await _db.SaveChangesAsync();
         return synced;
     }

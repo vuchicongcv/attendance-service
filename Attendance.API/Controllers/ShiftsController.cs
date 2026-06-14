@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Attendance.API.Data;
@@ -9,6 +10,7 @@ namespace Attendance.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ShiftsController : ControllerBase
 {
     private readonly AppDbContext _db;

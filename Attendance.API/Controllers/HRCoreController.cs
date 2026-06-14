@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Attendance.API.Services;
 
@@ -5,6 +6,7 @@ namespace Attendance.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class HRCoreController : ControllerBase
 {
     private readonly HRCoreService _hr;
