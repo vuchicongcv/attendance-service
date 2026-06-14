@@ -25,6 +25,17 @@ public class AttendanceRecordsController : ControllerBase
         _events = events;
     }
 
+    private static readonly TimeZoneInfo VnTimeZone = TimeZoneInfo.FindSystemTimeZoneById(
+        OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Ho_Chi_Minh");
+
+    private DateTime GetVnTime(DateTime date) => TimeZoneInfo.ConvertTimeFromUtc(date.Kind == DateTimeKind.Utc ? date : date.ToUniversalTime(), VnTimeZone);
+
+    private Guid? GetJwtEmployeeId()
+    {
+        var claim = User.FindFirst("EmployeeId")?.Value;
+        return Guid.TryParse(claim, out var id) ? id : null;
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<AttendanceRecordDto>>> GetAll(
         [FromQuery] Guid? employeeId,
@@ -61,7 +72,7 @@ public class AttendanceRecordsController : ControllerBase
     [HttpGet("employee/{employeeId}/today")]
     public async Task<ActionResult<AttendanceRecordDto>> GetToday(Guid employeeId)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = GetVnTime(DateTime.UtcNow).Date;
         var record = await _db.AttendanceRecords
             .FirstOrDefaultAsync(a => a.EmployeeId == employeeId && a.Date == today);
         if (record == null) return NotFound();
@@ -91,11 +102,16 @@ public class AttendanceRecordsController : ControllerBase
     [HttpPost("check-in")]
     public async Task<ActionResult<AttendanceRecordDto>> CheckIn(CheckInRequest request)
     {
+        var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+        var jwtEmpId = GetJwtEmployeeId();
+        if (userRole == "Employee" && request.EmployeeId != jwtEmpId)
+            return Forbid("Employees can only check in for themselves.");
+
         var emp = await _hr.GetEmployeeAsync(request.EmployeeId);
         if (emp == null)
             return BadRequest(new { message = "Employee not found. Sync employees from HRCore first." });
 
-        var today = request.CheckIn.Date;
+        var today = GetVnTime(request.CheckIn).Date;
         var existing = await _db.AttendanceRecords
             .FirstOrDefaultAsync(a => a.EmployeeId == request.EmployeeId && a.Date == today);
 

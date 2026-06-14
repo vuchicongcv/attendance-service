@@ -17,18 +17,27 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public IActionResult Login([FromBody] LoginRequest request)
     {
-        if (request.Username != "admin" || request.Password != "admin123")
-            return Unauthorized(new { message = "Invalid credentials" });
+        var role = request.Role;
+        if (string.IsNullOrEmpty(role))
+        {
+            if (request.Username == "admin") role = "Admin";
+            else role = "Employee";
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.Name, request.Username),
-            new Claim(ClaimTypes.Role, "Admin"),
+            new Claim(ClaimTypes.Role, role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
+        if (Guid.TryParse(request.EmployeeId, out var empId))
+        {
+            claims.Add(new Claim("EmployeeId", empId.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],
@@ -53,4 +62,6 @@ public class LoginRequest
 {
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public string? EmployeeId { get; set; }
+    public string? Role { get; set; }
 }
