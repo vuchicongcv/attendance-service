@@ -27,7 +27,7 @@ public class HRCoreService
         var baseUrl = _config["HRCore:BaseUrl"] ?? "https://hrcore-production.up.railway.app";
         try 
         {
-            var content = new StringContent("{\"password\":\"123456\"}", System.Text.Encoding.UTF8, "application/json");
+            var content = new StringContent("{\"username\":\"admin\",\"password\":\"123456\"}", System.Text.Encoding.UTF8, "application/json");
             var response = await _http.PostAsync($"{baseUrl}/api/TestAuth/login", content);
             if (!response.IsSuccessStatusCode) return "";
 
@@ -56,7 +56,7 @@ public class HRCoreService
         var baseUrl = _config["HRCore:BaseUrl"] ?? "https://hrcore-production.up.railway.app";
         var token = await GetTokenAsync();
 
-        var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/api/Employees");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/api/Employees?pageSize=1000");
         if (!string.IsNullOrEmpty(token))
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -72,12 +72,15 @@ public class HRCoreService
             return new List<EmployeeInfo>();
         }
 
-        var employees = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions
+        var pagedResult = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
 
-        if (employees == null) return new List<EmployeeInfo>();
+        if (pagedResult == null || !pagedResult.TryGetValue("items", out var itemsElement) || itemsElement.ValueKind != JsonValueKind.Array)
+            return new List<EmployeeInfo>();
+
+        var employees = itemsElement.EnumerateArray().ToList();
 
         var synced = new List<EmployeeInfo>();
 
