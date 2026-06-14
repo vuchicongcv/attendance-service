@@ -25,18 +25,26 @@ public class HRCoreService
         if (_cachedToken != null) return _cachedToken;
 
         var baseUrl = _config["HRCore:BaseUrl"] ?? "https://hrcore-production.up.railway.app";
-        var response = await _http.PostAsync($"{baseUrl}/api/TestAuth/login", null);
-        response.EnsureSuccessStatusCode();
-        var json = await response.Content.ReadAsStringAsync();
-        var result = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
-        _cachedToken = result?.GetValueOrDefault("token").GetString()
-                    ?? result?.GetValueOrDefault("accessToken").GetString()
-                    ?? "";
-
-        if (!string.IsNullOrEmpty(_cachedToken))
+        try 
         {
-            var ttl = _config.GetValue<int>("HRCore:TokenTTLMinutes", 55);
-            _ = Task.Delay(TimeSpan.FromMinutes(ttl)).ContinueWith(_ => _cachedToken = null);
+            var response = await _http.PostAsync($"{baseUrl}/api/TestAuth/login", null);
+            if (!response.IsSuccessStatusCode) return "";
+
+            var json = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
+            _cachedToken = result?.GetValueOrDefault("token").GetString()
+                        ?? result?.GetValueOrDefault("accessToken").GetString()
+                        ?? "";
+
+            if (!string.IsNullOrEmpty(_cachedToken))
+            {
+                var ttl = _config.GetValue<int>("HRCore:TokenTTLMinutes", 55);
+                _ = Task.Delay(TimeSpan.FromMinutes(ttl)).ContinueWith(_ => _cachedToken = null);
+            }
+        }
+        catch (HttpRequestException) 
+        {
+            return "";
         }
 
         return _cachedToken ?? "";
@@ -51,10 +59,18 @@ public class HRCoreService
         if (!string.IsNullOrEmpty(token))
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        var response = await _http.SendAsync(request);
-        if (!response.IsSuccessStatusCode) return new List<EmployeeInfo>();
+        var json = "";
+        try 
+        {
+            var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return new List<EmployeeInfo>();
+            json = await response.Content.ReadAsStringAsync();
+        }
+        catch (HttpRequestException) 
+        {
+            return new List<EmployeeInfo>();
+        }
 
-        var json = await response.Content.ReadAsStringAsync();
         var employees = JsonSerializer.Deserialize<List<JsonElement>>(json, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true

@@ -69,6 +69,15 @@ public class OvertimeRecordsController : ControllerBase
         if (hours <= 0)
             return BadRequest(new { message = "End time must be after start time" });
 
+        var overlap = await _db.OvertimeRecords.AnyAsync(o => 
+            o.EmployeeId == request.EmployeeId &&
+            o.Date == request.Date &&
+            o.StartTime < request.EndTime && 
+            o.EndTime > request.StartTime);
+            
+        if (overlap)
+            return BadRequest(new { message = "Overtime overlaps with an existing record" });
+
         var record = new OvertimeRecord
         {
             EmployeeId = request.EmployeeId,

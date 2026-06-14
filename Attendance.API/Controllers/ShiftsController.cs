@@ -42,8 +42,11 @@ public class ShiftsController : ControllerBase
         if (!TimeSpan.TryParse(request.EndTime, out var endTime))
             return BadRequest(new { message = "Invalid EndTime format. Use HH:mm" });
 
-        if (startTime >= endTime)
-            return BadRequest(new { message = "EndTime must be after StartTime" });
+        if (startTime == endTime)
+            return BadRequest(new { message = "EndTime cannot be the same as StartTime" });
+
+        if (request.AllowedLateMinutes < 0)
+            return BadRequest(new { message = "Allowed late minutes cannot be negative" });
 
         var existing = await _db.Shifts.AnyAsync(s => s.ShiftCode == request.ShiftCode);
         if (existing)

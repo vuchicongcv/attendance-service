@@ -40,6 +40,13 @@ public class HolidaysController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<HolidayDto>> Create(CreateHolidayRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.HolidayName) || request.HolidayName.Length < 2)
+            return BadRequest(new { message = "Holiday name must be at least 2 characters long." });
+
+        var exists = await _db.Holidays.AnyAsync(h => h.Date.Date == request.Date.Date || h.HolidayName == request.HolidayName);
+        if (exists)
+            return BadRequest(new { message = "A holiday with this date or name already exists." });
+
         var holiday = new Holiday
         {
             HolidayName = request.HolidayName,

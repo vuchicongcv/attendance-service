@@ -71,8 +71,11 @@ public class LeaveRequestsController : ControllerBase
         if (!Enum.TryParse<LeaveType>(request.LeaveType, true, out var leaveType))
             return BadRequest(new { message = $"Invalid leave type: {request.LeaveType}" });
 
-        if (request.StartDate >= request.EndDate)
-            return BadRequest(new { message = "End date must be after start date" });
+        if (request.StartDate > request.EndDate)
+            return BadRequest(new { message = "End date must be on or after start date" });
+
+        if ((request.EndDate - request.StartDate).TotalDays > 30)
+            return BadRequest(new { message = "Leave duration cannot exceed 30 days" });
 
         var leaveRequest = new LeaveRequest
         {
