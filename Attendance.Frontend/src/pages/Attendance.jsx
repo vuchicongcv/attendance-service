@@ -76,7 +76,8 @@ export default function Attendance() {
     params.push(`page=${p || hPage}`, `pageSize=${PAGE_SIZE}`);
     try {
       const d = await api('GET', '/api/AttendanceRecords?' + params.join('&'));
-      hSetData(d.items || d);
+      const items = (d.items || d).sort((a, b) => new Date(b.date) - new Date(a.date) || new Date(b.createdAt) - new Date(a.createdAt));
+      hSetData(items);
       hSetTotal(d.totalCount || 0);
       hSetPage(d.page || 1);
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi tìm kiếm', 'error'); }
@@ -94,7 +95,8 @@ export default function Attendance() {
     setLoading(true);
     try {
       const d = await api('GET', `/api/AttendanceRecords/employee/${beEmp}/history?page=${p || bePage}&pageSize=${PAGE_SIZE}`);
-      setBeData(d.items || d);
+      const items = (d.items || d).sort((a, b) => new Date(b.date) - new Date(a.date));
+      setBeData(items);
       setBeTotal(d.totalCount || 0);
       setBePage(d.page || 1);
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }

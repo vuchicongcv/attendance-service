@@ -66,7 +66,8 @@ export default function Overtime() {
     if (fEmp) params.unshift(`employeeId=${fEmp}`);
     try {
       const d = await api('GET', '/api/OvertimeRecords?' + params.join('&'));
-      setList(d.items || d);
+      const items = (d.items || d).sort((a, b) => new Date(b.date) - new Date(a.date));
+      setList(items);
       setTotal(d.totalCount || 0);
       setPage(d.page || 1);
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }

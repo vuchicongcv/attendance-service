@@ -69,7 +69,8 @@ export default function Leaves() {
     params.push(`page=${p || page}`, `pageSize=${PAGE_SIZE}`);
     try {
       const d = await api('GET', '/api/LeaveRequests?' + params.join('&'));
-      setList(d.items || d);
+      const items = (d.items || d).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setList(items);
       setTotal(d.totalCount || 0);
       setPage(d.page || 1);
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
