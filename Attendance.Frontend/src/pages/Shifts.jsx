@@ -55,6 +55,36 @@ export default function Shifts() {
     finally { setLoading(false); }
   };
 
+  // ─── Edit ───
+  const [editItem, setEditItem] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const openEdit = (item) => {
+    setEditItem(item);
+    setEditForm({
+      shiftCode: item.shiftCode,
+      shiftName: item.shiftName,
+      startTime: item.startTime ? item.startTime.slice(0, 5) : '',
+      endTime: item.endTime ? item.endTime.slice(0, 5) : '',
+      allowedLateMinutes: item.allowedLateMinutes || 30,
+    });
+  };
+  const doEdit = async () => {
+    setLoading(true);
+    try {
+      await api('PUT', `/api/Shifts/${editItem.id}`, {
+        shiftCode: editForm.shiftCode,
+        shiftName: editForm.shiftName,
+        startTime: editForm.startTime + ':00',
+        endTime: editForm.endTime + ':00',
+        allowedLateMinutes: parseInt(editForm.allowedLateMinutes) || 30,
+      });
+      setEditItem(null);
+      toast('Cập nhật ca làm việc thành công', 'success');
+      doList();
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
+    finally { setLoading(false); }
+  };
+
   // ─── Delete ───
   const doDelete = async (id) => {
     if (!confirm('Xóa ca làm việc này?')) return;
@@ -124,7 +154,12 @@ export default function Shifts() {
                         <td>{item.endTime}</td>
                         <td>{item.allowedLateMinutes} phút</td>
                         <td>{item.isActive ? '✅' : '❌'}</td>
-                        <td><button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button></td>
+                        <td>
+                          <div className="actions">
+                            <button className="btn-icon edit" onClick={() => openEdit(item)}>✏️</button>
+                            <button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -134,6 +169,28 @@ export default function Shifts() {
           </div>
         )}
       </div>
+
+      {editItem && (
+        <div className="modal-overlay" onClick={() => setEditItem(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>Sửa ca làm việc</h3>
+            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>{editItem.shiftCode} - {editItem.shiftName}</p>
+            <div className="form-row">
+              <div className="field"><label>Mã ca</label><input value={editForm.shiftCode} onChange={e => setEditForm(f => ({ ...f, shiftCode: e.target.value }))} /></div>
+              <div className="field"><label>Tên ca</label><input value={editForm.shiftName} onChange={e => setEditForm(f => ({ ...f, shiftName: e.target.value }))} /></div>
+            </div>
+            <div className="form-row">
+              <div className="field"><label>Giờ bắt đầu</label><input type="time" value={editForm.startTime} onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))} /></div>
+              <div className="field"><label>Giờ kết thúc</label><input type="time" value={editForm.endTime} onChange={e => setEditForm(f => ({ ...f, endTime: e.target.value }))} /></div>
+            </div>
+            <div className="field"><label>Phép đi muộn (phút)</label><input type="number" value={editForm.allowedLateMinutes} onChange={e => setEditForm(f => ({ ...f, allowedLateMinutes: e.target.value }))} /></div>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setEditItem(null)}>Hủy</button>
+              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>{loading ? <span className="spinner" /> : null} Lưu</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

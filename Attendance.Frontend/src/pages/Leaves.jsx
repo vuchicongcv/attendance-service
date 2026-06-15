@@ -50,6 +50,8 @@ export default function Leaves() {
       });
       toast('Đã gửi đơn nghỉ phép', 'success');
       setEmp(''); setReason(''); setStart(''); setEnd('');
+      setTab('list');
+      doList(1);
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
@@ -77,18 +79,13 @@ export default function Leaves() {
     finally { setLoading(false); }
   };
 
-  // ─── Approve ───
-  const [apId, setApId] = useState('');
-  const [apStatus, setApStatus] = useState('Approved');
-  const [apReason, setApReason] = useState('');
-
-  const doApprove = async () => {
-    if (!apId) return toast('Nhập mã đơn nghỉ phép', 'error');
+  // ─── Approve inline ───
+  const doApprove = async (id, status) => {
     setLoading(true);
     try {
-      await api('PATCH', `/api/LeaveRequests/${apId}/approve`, { status: apStatus, rejectionReason: apReason || null });
-      toast(`${apStatus === 'Approved' ? 'Đã duyệt' : apStatus === 'Rejected' ? 'Đã từ chối' : 'Đã hủy'} đơn nghỉ phép`, 'success');
-      setApId(''); setApReason('');
+      await api('PATCH', `/api/LeaveRequests/${id}/approve`, { status, rejectionReason: null });
+      toast(status === 'Approved' ? 'Đã duyệt đơn nghỉ phép' : 'Đã từ chối đơn nghỉ phép', 'success');
+      doList(page);
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
@@ -142,7 +139,6 @@ export default function Leaves() {
         <div className="tabs">
           <TabBtn label="Tạo đơn" active={tab === 'create'} onClick={() => setTab('create')} />
           <TabBtn label="Danh sách" active={tab === 'list'} onClick={() => { setTab('list'); if (!list) doList(1); }} />
-          <TabBtn label="Duyệt đơn" active={tab === 'approve'} onClick={() => setTab('approve')} />
         </div>
 
         {tab === 'create' && (
@@ -220,9 +216,15 @@ export default function Leaves() {
                           <td>{sBadge(item.status)}</td>
                           <td><small>{item.reason || '—'}</small></td>
                           <td>
-                            <div className="actions">
-                              <button className="btn-icon edit" onClick={() => openEdit(item)}>✏️</button>
-                              <button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button>
+                            <div className="actions" style={{ flexDirection: 'column', gap: 4 }}>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                {item.status === 'Pending' && <>
+                                  <button className="btn-icon" style={{ background: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)' }} onClick={() => doApprove(item.id, 'Approved')} title="Duyệt">✓</button>
+                                  <button className="btn-icon" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)' }} onClick={() => doApprove(item.id, 'Rejected')} title="Từ chối">✗</button>
+                                </>}
+                                <button className="btn-icon edit" onClick={() => openEdit(item)}>✏️</button>
+                                <button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -233,32 +235,6 @@ export default function Leaves() {
                 <Pagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={p => { setPage(p); doList(p); }} />
               </>
             ) : list ? <div className="empty-state">Không có dữ liệu</div> : null}
-          </div>
-        )}
-
-        {tab === 'approve' && (
-          <div className="card-body">
-            <div className="form-row">
-              <div className="field">
-                <label>Mã đơn</label>
-                <input value={apId} onChange={e => setApId(e.target.value)} placeholder="UUID của đơn nghỉ phép" />
-              </div>
-              <div className="field">
-                <label>Trạng thái</label>
-                <select value={apStatus} onChange={e => setApStatus(e.target.value)}>
-                  <option value="Approved">Duyệt</option>
-                  <option value="Rejected">Từ chối</option>
-                  <option value="Cancelled">Hủy</option>
-                </select>
-              </div>
-            </div>
-            <div className="field">
-              <label>Lý do từ chối</label>
-              <input value={apReason} onChange={e => setApReason(e.target.value)} placeholder="Nhập lý do nếu từ chối..." />
-            </div>
-            <button className="btn btn-warning" onClick={doApprove} disabled={loading || !apId}>
-              {loading ? <span className="spinner" /> : null} Xác nhận
-            </button>
           </div>
         )}
       </div>

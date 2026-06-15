@@ -364,6 +364,7 @@ body {
 .stat-card .value.yellow { color: #d97706; }
 .stat-card .value.red { color: #dc2626; }
 .stat-card .value.blue { color: var(--accent); }
+.stat-card .value.orange { color: #ea580c; }
 
 /* ─── Quick Actions ─── */
 .quick-actions {
