@@ -1,22 +1,18 @@
 import { useState } from 'react';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 
 function TabBtn({ label, active, onClick }) {
   return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>{label}</button>;
 }
 
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN');
-}
+const fd = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
 export default function Holidays() {
+  const { toast } = useToast();
   const [tab, setTab] = useState('create');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
   const [list, setList] = useState(null);
-
-  const show = (type, data) => setResult({ type, data });
 
   // ─── Create ───
   const [name, setName] = useState('');
@@ -24,17 +20,18 @@ export default function Holidays() {
   const [recurring, setRecurring] = useState(false);
 
   const doCreate = async () => {
-    if (!name || !date) return;
+    if (!name) return toast('Nhập tên ngày lễ', 'error');
+    if (!date) return toast('Chọn ngày', 'error');
     setLoading(true);
     try {
-      const data = await api('POST', '/api/Holidays', {
+      await api('POST', '/api/Holidays', {
         holidayName: name,
         date: new Date(date).toISOString(),
         isRecurring: recurring,
       });
-      show('success', data);
+      toast('Đã thêm ngày lễ', 'success');
       setName(''); setDate(''); setRecurring(false);
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -42,10 +39,9 @@ export default function Holidays() {
   const doList = async () => {
     setLoading(true);
     try {
-      const data = await api('GET', '/api/Holidays');
-      setList(Array.isArray(data) ? data : []);
-      show('success', data);
-    } catch (e) { show('error', e.data || e.message); }
+      const d = await api('GET', '/api/Holidays');
+      setList(Array.isArray(d) ? d : []);
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -69,9 +65,9 @@ export default function Holidays() {
         isRecurring: editForm.isRecurring,
       });
       setEditItem(null);
+      toast('Cập nhật thành công', 'success');
       doList();
-      show('success', 'Cập nhật thành công');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -81,9 +77,9 @@ export default function Holidays() {
     setLoading(true);
     try {
       await api('DELETE', `/api/Holidays/${id}`);
-      show('success', 'Đã xóa');
+      toast('Đã xóa ngày lễ', 'success');
       doList();
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -112,7 +108,7 @@ export default function Holidays() {
               </div>
             </div>
             <button className="btn btn-success" onClick={doCreate} disabled={loading || !name || !date}>
-              {loading ? <span className="spinner" /> : null} Thêm ngày lễ
+              {loading ? <span className="spinner" /> : null} Thêm
             </button>
           </div>
         )}
@@ -135,12 +131,12 @@ export default function Holidays() {
                     {list.map(item => (
                       <tr key={item.id}>
                         <td><strong>{item.holidayName}</strong></td>
-                        <td>{fmtDate(item.date)}</td>
+                        <td>{fd(item.date)}</td>
                         <td>{item.isRecurring ? '✅ Hàng năm' : '—'}</td>
                         <td>
                           <div className="actions">
-                            <button className="btn-icon edit" title="Sửa" onClick={() => openEdit(item)}>✏️</button>
-                            <button className="btn-icon delete" title="Xóa" onClick={() => doDelete(item.id)}>🗑️</button>
+                            <button className="btn-icon edit" onClick={() => openEdit(item)}>✏️</button>
+                            <button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button>
                           </div>
                         </td>
                       </tr>
@@ -151,19 +147,8 @@ export default function Holidays() {
             ) : list ? <div className="empty-state">Chưa có ngày lễ nào</div> : null}
           </div>
         )}
-
-        {result && (
-          <div className="card-body">
-            <div className="output">
-              <span className={result.type === 'success' ? 'success' : 'error'}>
-                {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : String(result.data)}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Edit Modal */}
       {editItem && (
         <div className="modal-overlay" onClick={() => setEditItem(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -178,9 +163,7 @@ export default function Holidays() {
             </div>
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setEditItem(null)}>Hủy</button>
-              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>
-                {loading ? <span className="spinner" /> : null} Lưu
-              </button>
+              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>{loading ? <span className="spinner" /> : null} Lưu</button>
             </div>
           </div>
         </div>

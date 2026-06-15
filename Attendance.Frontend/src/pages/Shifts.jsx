@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 
 function TabBtn({ label, active, onClick }) {
   return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>{label}</button>;
 }
 
 export default function Shifts() {
+  const { toast } = useToast();
   const [tab, setTab] = useState('create');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
   const [list, setList] = useState(null);
-
-  const show = (type, data) => setResult({ type, data });
 
   // ─── Create ───
   const [code, setCode] = useState('');
@@ -21,17 +20,18 @@ export default function Shifts() {
   const [late, setLate] = useState('30');
 
   const doCreate = async () => {
-    if (!code || !name) return;
+    if (!code) return toast('Nhập mã ca', 'error');
+    if (!name) return toast('Nhập tên ca', 'error');
     setLoading(true);
     try {
-      const data = await api('POST', '/api/Shifts', {
+      await api('POST', '/api/Shifts', {
         shiftCode: code, shiftName: name,
         startTime: start + ':00', endTime: end + ':00',
         allowedLateMinutes: parseInt(late) || 30,
       });
-      show('success', data);
+      toast('Đã thêm ca làm việc', 'success');
       setCode(''); setName(''); setStart(''); setEnd(''); setLate('30');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -39,17 +39,19 @@ export default function Shifts() {
   const doList = async () => {
     setLoading(true);
     try {
-      const data = await api('GET', '/api/Shifts');
-      setList(Array.isArray(data) ? data : []);
-      show('success', data);
-    } catch (e) { show('error', e.data || e.message); }
+      const d = await api('GET', '/api/Shifts');
+      setList(Array.isArray(d) ? d : []);
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
   const doSeed = async () => {
     setLoading(true);
-    try { show('success', await api('POST', '/api/Shifts/seed')); }
-    catch (e) { show('error', e.data || e.message); }
+    try {
+      await api('POST', '/api/Shifts/seed');
+      toast('Đã tạo ca mặc định', 'success');
+      doList();
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -59,9 +61,9 @@ export default function Shifts() {
     setLoading(true);
     try {
       await api('DELETE', `/api/Shifts/${id}`);
-      show('success', 'Đã xóa ca làm việc');
+      toast('Đã xóa ca làm việc', 'success');
       doList();
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -89,7 +91,7 @@ export default function Shifts() {
             </div>
             <div className="field"><label>Số phút cho phép đi muộn</label><input type="number" value={late} onChange={e => setLate(e.target.value)} /></div>
             <button className="btn btn-success" onClick={doCreate} disabled={loading || !code || !name}>
-              {loading ? <span className="spinner" /> : null} Thêm ca làm việc
+              {loading ? <span className="spinner" /> : null} Thêm ca
             </button>
           </div>
         )}
@@ -122,25 +124,13 @@ export default function Shifts() {
                         <td>{item.endTime}</td>
                         <td>{item.allowedLateMinutes} phút</td>
                         <td>{item.isActive ? '✅' : '❌'}</td>
-                        <td>
-                          <button className="btn-icon delete" title="Xóa" onClick={() => doDelete(item.id)}>🗑️</button>
-                        </td>
+                        <td><button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : list ? <div className="empty-state">Chưa có ca làm việc nào</div> : null}
-          </div>
-        )}
-
-        {result && (
-          <div className="card-body">
-            <div className="output">
-              <span className={result.type === 'success' ? 'success' : 'error'}>
-                {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : String(result.data)}
-              </span>
-            </div>
           </div>
         )}
       </div>

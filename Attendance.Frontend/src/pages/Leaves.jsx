@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import Pagination from '../components/Pagination';
 
 const PAGE_SIZE = 10;
@@ -8,23 +9,19 @@ function TabBtn({ label, active, onClick }) {
   return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>{label}</button>;
 }
 
-const leaveTypeVn = { Annual: 'Năm', Sick: 'Ốm', Personal: 'Cá nhân', Unpaid: 'Không lương', Maternity: 'Thai sản', Bereavement: 'Tang gia' };
-const statusVn = { Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Từ chối', Cancelled: 'Đã hủy' };
-const statusBadge = (s) => {
-  const map = { Pending: 'badge-yellow', Approved: 'badge-green', Rejected: 'badge-red', Cancelled: 'badge-gray' };
-  return <span className={`badge ${map[s] || 'badge-gray'}`}>{statusVn[s] || s}</span>;
+const tVn = { Annual: 'Năm', Sick: 'Ốm', Personal: 'Cá nhân', Unpaid: 'Không lương', Maternity: 'Thai sản', Bereavement: 'Tang gia' };
+const sVn = { Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Từ chối', Cancelled: 'Đã hủy' };
+const sBadge = (s) => {
+  const m = { Pending: 'badge-yellow', Approved: 'badge-green', Rejected: 'badge-red', Cancelled: 'badge-gray' };
+  return <span className={`badge ${m[s] || 'badge-gray'}`}>{sVn[s] || s}</span>;
 };
-
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN');
-}
+const fd = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
 export default function Leaves() {
+  const { toast } = useToast();
   const [tab, setTab] = useState('create');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
 
   useEffect(() => { loadEmps(); }, []);
 
@@ -32,8 +29,6 @@ export default function Leaves() {
     try { const d = await api('GET', '/api/HRCore/employees'); setEmployees(Array.isArray(d) ? d : []); }
     catch { setEmployees([]); }
   };
-
-  const show = (type, data) => setResult({ type, data });
 
   // ─── Create ───
   const [emp, setEmp] = useState('');
@@ -43,17 +38,19 @@ export default function Leaves() {
   const [end, setEnd] = useState('');
 
   const doCreate = async () => {
-    if (!emp || !start || !end) return;
+    if (!emp) return toast('Chọn nhân viên', 'error');
+    if (!start || !end) return toast('Chọn ngày bắt đầu và kết thúc', 'error');
     setLoading(true);
     try {
-      show('success', await api('POST', '/api/LeaveRequests', {
+      await api('POST', '/api/LeaveRequests', {
         employeeId: emp, leaveType: type,
         startDate: new Date(start).toISOString(),
         endDate: new Date(end).toISOString(),
         reason: reason || null,
-      }));
+      });
+      toast('Đã gửi đơn nghỉ phép', 'success');
       setEmp(''); setReason(''); setStart(''); setEnd('');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -71,11 +68,11 @@ export default function Leaves() {
     if (fStatus) params.push(`status=${fStatus}`);
     params.push(`page=${p || page}`, `pageSize=${PAGE_SIZE}`);
     try {
-      const data = await api('GET', '/api/LeaveRequests?' + params.join('&'));
-      setList(data.items || data);
-      setTotal(data.totalCount || 0);
-      setPage(data.page || 1);
-    } catch (e) { show('error', e.data || e.message); }
+      const d = await api('GET', '/api/LeaveRequests?' + params.join('&'));
+      setList(d.items || d);
+      setTotal(d.totalCount || 0);
+      setPage(d.page || 1);
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -85,12 +82,13 @@ export default function Leaves() {
   const [apReason, setApReason] = useState('');
 
   const doApprove = async () => {
-    if (!apId) return;
+    if (!apId) return toast('Nhập mã đơn nghỉ phép', 'error');
     setLoading(true);
     try {
-      show('success', await api('PATCH', `/api/LeaveRequests/${apId}/approve`, { status: apStatus, rejectionReason: apReason || null }));
+      await api('PATCH', `/api/LeaveRequests/${apId}/approve`, { status: apStatus, rejectionReason: apReason || null });
+      toast(`${apStatus === 'Approved' ? 'Đã duyệt' : apStatus === 'Rejected' ? 'Đã từ chối' : 'Đã hủy'} đơn nghỉ phép`, 'success');
       setApId(''); setApReason('');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -116,9 +114,9 @@ export default function Leaves() {
         reason: editForm.reason || null,
       });
       setEditItem(null);
+      toast('Cập nhật thành công', 'success');
       doList(page);
-      show('success', 'Cập nhật thành công');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
   const doDelete = async (id) => {
@@ -126,9 +124,9 @@ export default function Leaves() {
     setLoading(true);
     try {
       await api('DELETE', `/api/LeaveRequests/${id}`);
+      toast('Đã xóa đơn', 'success');
       doList(page);
-      show('success', 'Đã xóa');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -136,7 +134,7 @@ export default function Leaves() {
     <div className="page">
       <div className="page-header">
         <h2>Nghỉ phép</h2>
-        <button className="btn btn-outline btn-sm" onClick={loadEmps}>Làm mới nhân viên</button>
+        <button className="btn btn-outline btn-sm" onClick={loadEmps}>Làm mới</button>
       </div>
 
       <div className="card">
@@ -161,7 +159,7 @@ export default function Leaves() {
               <div className="field">
                 <label>Loại nghỉ</label>
                 <select value={type} onChange={e => setType(e.target.value)}>
-                  {Object.entries(leaveTypeVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  {Object.entries(tVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div className="field">
@@ -174,7 +172,7 @@ export default function Leaves() {
               <div className="field"><label>Ngày kết thúc</label><input type="date" value={end} onChange={e => setEnd(e.target.value)} /></div>
             </div>
             <button className="btn btn-success" onClick={doCreate} disabled={loading || !emp || !start || !end}>
-              {loading ? <span className="spinner" /> : null} Gửi đơn nghỉ phép
+              {loading ? <span className="spinner" /> : null} Gửi đơn
             </button>
           </div>
         )}
@@ -186,16 +184,14 @@ export default function Leaves() {
                 <label>Nhân viên</label>
                 <select value={fEmp} onChange={e => { setFEmp(e.target.value); setPage(1); }}>
                   <option value="">Tất cả</option>
-                  {employees.map(e => (
-                    <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}</option>
-                  ))}
+                  {employees.map(e => <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}</option>)}
                 </select>
               </div>
               <div className="field">
                 <label>Trạng thái</label>
                 <select value={fStatus} onChange={e => { setFStatus(e.target.value); setPage(1); }}>
                   <option value="">Tất cả</option>
-                  {Object.entries(statusVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  {Object.entries(sVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
             </div>
@@ -203,29 +199,29 @@ export default function Leaves() {
               {loading ? <span className="spinner" /> : null} Tìm kiếm
             </button>
 
-            {list && Array.isArray(list) && list.length > 0 ? (
+            {list && list.length > 0 ? (
               <>
                 <div className="table-wrap">
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>NV</th><th>Loại</th><th>Bắt đầu</th><th>Kết thúc</th><th>Số ngày</th><th>Trạng thái</th><th>Lý do</th><th></th>
+                        <th>NV</th><th>Loại</th><th>Bắt đầu</th><th>Kết thúc</th><th>Ngày</th><th>Trạng thái</th><th>Lý do</th><th></th>
                       </tr>
                     </thead>
                     <tbody>
                       {list.map(item => (
                         <tr key={item.id}>
                           <td><strong>{item.employeeCode}</strong><br /><small>{item.employeeName}</small></td>
-                          <td>{leaveTypeVn[item.leaveType] || item.leaveType}</td>
-                          <td>{fmtDate(item.startDate)}</td>
-                          <td>{fmtDate(item.endDate)}</td>
+                          <td>{tVn[item.leaveType] || item.leaveType}</td>
+                          <td>{fd(item.startDate)}</td>
+                          <td>{fd(item.endDate)}</td>
                           <td>{item.durationDays ?? '—'}</td>
-                          <td>{statusBadge(item.status)}</td>
+                          <td>{sBadge(item.status)}</td>
                           <td><small>{item.reason || '—'}</small></td>
                           <td>
                             <div className="actions">
-                              <button className="btn-icon edit" title="Sửa" onClick={() => openEdit(item)}>✏️</button>
-                              <button className="btn-icon delete" title="Xóa" onClick={() => doDelete(item.id)}>🗑️</button>
+                              <button className="btn-icon edit" onClick={() => openEdit(item)}>✏️</button>
+                              <button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button>
                             </div>
                           </td>
                         </tr>
@@ -264,42 +260,27 @@ export default function Leaves() {
             </button>
           </div>
         )}
-
-        {result && (
-          <div className="card-body">
-            <div className="output">
-              <span className={result.type === 'success' ? 'success' : 'error'}>
-                {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : String(result.data)}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Edit Modal */}
       {editItem && (
         <div className="modal-overlay" onClick={() => setEditItem(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>Sửa đơn nghỉ phép</h3>
-            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>
-              {editItem.employeeName} - {leaveTypeVn[editItem.leaveType]}
-            </p>
+            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>{editItem.employeeName}</p>
             <div className="field">
               <label>Loại nghỉ</label>
               <select value={editForm.leaveType} onChange={e => setEditForm(f => ({ ...f, leaveType: e.target.value }))}>
-                {Object.entries(leaveTypeVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                {Object.entries(tVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div className="form-row">
-              <div className="field"><label>Ngày bắt đầu</label><input type="date" value={editForm.startDate} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} /></div>
-              <div className="field"><label>Ngày kết thúc</label><input type="date" value={editForm.endDate} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} /></div>
+              <div className="field"><label>Bắt đầu</label><input type="date" value={editForm.startDate} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} /></div>
+              <div className="field"><label>Kết thúc</label><input type="date" value={editForm.endDate} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} /></div>
             </div>
             <div className="field"><label>Lý do</label><input value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} /></div>
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setEditItem(null)}>Hủy</button>
-              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>
-                {loading ? <span className="spinner" /> : null} Lưu
-              </button>
+              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>{loading ? <span className="spinner" /> : null} Lưu</button>
             </div>
           </div>
         </div>

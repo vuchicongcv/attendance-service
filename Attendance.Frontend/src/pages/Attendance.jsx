@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import Pagination from '../components/Pagination';
 
 const PAGE_SIZE = 10;
@@ -8,28 +9,26 @@ function TabBtn({ label, active, onClick }) {
   return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>{label}</button>;
 }
 
-function statusBadge(s) {
-  const map = { Present: 'badge-green', Late: 'badge-yellow', Absent: 'badge-red', HalfDay: 'badge-blue' };
-  const vn = { Present: 'Đi làm', Late: 'Đi muộn', Absent: 'Vắng', HalfDay: 'Nửa ngày' };
-  return <span className={`badge ${map[s] || 'badge-gray'}`}>{vn[s] || s}</span>;
+function badge(s) {
+  const m = { Present: 'badge-green', Late: 'badge-yellow', Absent: 'badge-red', HalfDay: 'badge-blue' };
+  const v = { Present: 'Đi làm', Late: 'Đi muộn', Absent: 'Vắng', HalfDay: 'Nửa ngày' };
+  return <span className={`badge ${m[s] || 'badge-gray'}`}>{v[s] || s}</span>;
 }
 
-function fmt(d) {
+function fd(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('vi-VN');
+}
+function fdt(d) {
   if (!d) return '—';
   return new Date(d).toLocaleString('vi-VN');
 }
 
-function fmtDate(d) {
-  if (!d) return '';
-  return new Date(d).toISOString().split('T')[0];
-}
-
 export default function Attendance() {
+  const { toast } = useToast();
   const [tab, setTab] = useState('checkin');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState(null);
-  const [result, setResult] = useState(null);
 
   useEffect(() => { loadEmps(); }, []);
 
@@ -38,29 +37,29 @@ export default function Attendance() {
     catch { setEmployees([]); }
   };
 
-  const showResult = (type, data) => setResult({ type, data });
-  const clearResult = () => setResult(null);
-
   // ─── Check In/Out ───
   const [ciEmp, setCiEmp] = useState('');
   const doCheckIn = async () => {
-    if (!ciEmp) return;
+    if (!ciEmp) return toast('Chọn nhân viên', 'error');
     setLoading(true);
-    try { showResult('success', await api('POST', '/api/AttendanceRecords/check-in', { employeeId: ciEmp, checkIn: new Date().toISOString() })); }
-    catch (e) { showResult('error', e.data || e.message); }
+    try {
+      const d = await api('POST', '/api/AttendanceRecords/check-in', { employeeId: ciEmp, checkIn: new Date().toISOString() });
+      toast(`Check-in thành công: ${d.employeeName || ''} - ${d.status || ''}`, 'success');
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi check-in', 'error'); }
     finally { setLoading(false); }
   };
   const doCheckOut = async () => {
-    if (!ciEmp) return;
+    if (!ciEmp) return toast('Chọn nhân viên', 'error');
     setLoading(true);
     try {
       const today = await api('GET', `/api/AttendanceRecords/employee/${ciEmp}/today`);
-      showResult('success', await api('PATCH', `/api/AttendanceRecords/${today.id}/check-out`, { checkOut: new Date().toISOString() }));
-    } catch (e) { showResult('error', e.data || e.message); }
+      const d = await api('PATCH', `/api/AttendanceRecords/${today.id}/check-out`, { checkOut: new Date().toISOString() });
+      toast(`Check-out thành công: ${d.employeeName} - ${d.workedHours?.toFixed(1) || ''}h`, 'success');
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi check-out', 'error'); }
     finally { setLoading(false); }
   };
 
-  // ─── History ───
+  // ─── History (table + phân trang) ───
   const [hFrom, hSetFrom] = useState('');
   const [hTo, hSetTo] = useState('');
   const [hStatus, hSetStatus] = useState('');
@@ -76,25 +75,40 @@ export default function Attendance() {
     if (hStatus) params.push(`status=${hStatus}`);
     params.push(`page=${p || hPage}`, `pageSize=${PAGE_SIZE}`);
     try {
-      const data = await api('GET', '/api/AttendanceRecords?' + params.join('&'));
-      hSetData(data.items || data);
-      hSetTotal(data.totalCount || 0);
-      hSetPage(data.page || 1);
-      clearResult();
-    } catch (e) { showResult('error', e.data || e.message); }
+      const d = await api('GET', '/api/AttendanceRecords?' + params.join('&'));
+      hSetData(d.items || d);
+      hSetTotal(d.totalCount || 0);
+      hSetPage(d.page || 1);
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi tìm kiếm', 'error'); }
     finally { setLoading(false); }
   };
 
-  const onHistoryPage = (p) => { hSetPage(p); doSearch(p); };
+  // ─── By Employee (table + phân trang) ───
+  const [beEmp, setBeEmp] = useState('');
+  const [beData, setBeData] = useState(null);
+  const [beTotal, setBeTotal] = useState(0);
+  const [bePage, setBePage] = useState(1);
 
-  // ─── Edit Modal ───
+  const doViewEmp = async (p) => {
+    if (!beEmp) return toast('Chọn nhân viên', 'error');
+    setLoading(true);
+    try {
+      const d = await api('GET', `/api/AttendanceRecords/employee/${beEmp}/history?page=${p || bePage}&pageSize=${PAGE_SIZE}`);
+      setBeData(d.items || d);
+      setBeTotal(d.totalCount || 0);
+      setBePage(d.page || 1);
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
+    finally { setLoading(false); }
+  };
+
+  // ─── Edit ───
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const openEdit = (item) => {
     setEditItem(item);
     setEditForm({
-      checkIn: item.checkIn ? fmtDate(item.checkIn) + 'T' + new Date(item.checkIn).toTimeString().slice(0, 5) : '',
-      checkOut: item.checkOut ? fmtDate(item.checkOut) + 'T' + new Date(item.checkOut).toTimeString().slice(0, 5) : '',
+      checkIn: item.checkIn ? item.checkIn.slice(0, 16) : '',
+      checkOut: item.checkOut ? item.checkOut.slice(0, 16) : '',
       status: item.status,
       note: item.note || '',
     });
@@ -109,9 +123,10 @@ export default function Attendance() {
         note: editForm.note || null,
       });
       setEditItem(null);
-      doSearch(hPage);
-      showResult('success', 'Cập nhật thành công');
-    } catch (e) { showResult('error', e.data || e.message); }
+      toast('Cập nhật thành công', 'success');
+      if (tab === 'history') doSearch(hPage);
+      else doViewEmp(bePage);
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi cập nhật', 'error'); }
     finally { setLoading(false); }
   };
   const doDelete = async (id) => {
@@ -119,28 +134,55 @@ export default function Attendance() {
     setLoading(true);
     try {
       await api('DELETE', `/api/AttendanceRecords/${id}`);
-      doSearch(hPage);
-      showResult('success', 'Đã xóa bản ghi');
-    } catch (e) { showResult('error', e.data || e.message); }
+      toast('Đã xóa bản ghi', 'success');
+      if (tab === 'history') doSearch(hPage);
+      else doViewEmp(bePage);
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi xóa', 'error'); }
     finally { setLoading(false); }
   };
 
-  const renderRes = () => {
-    if (!result) return null;
-    return (
-      <div className="output">
-        <span className={result.type === 'success' ? 'success' : 'error'}>
-          {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : String(result.data)}
-        </span>
-      </div>
-    );
-  };
+  const renderTable = (data, pg, total, onPage) => (
+    <>
+      {data && data.length > 0 ? (
+        <>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Nhân viên</th><th>Ngày</th><th>Check In</th><th>Check Out</th><th>Trạng thái</th><th>Giờ làm</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map(item => (
+                  <tr key={item.id}>
+                    <td><strong>{item.employeeCode}</strong><br /><small>{item.employeeName}</small></td>
+                    <td>{fd(item.date)}</td>
+                    <td>{item.checkIn ? fdt(item.checkIn) : '—'}</td>
+                    <td>{item.checkOut ? fdt(item.checkOut) : '—'}</td>
+                    <td>{badge(item.status)}</td>
+                    <td>{item.workedHours ? item.workedHours.toFixed(1) + 'h' : '—'}</td>
+                    <td>
+                      <div className="actions">
+                        <button className="btn-icon edit" onClick={() => openEdit(item)}>✏️</button>
+                        <button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={pg} pageSize={PAGE_SIZE} totalCount={total} onPageChange={onPage} />
+        </>
+      ) : data ? <div className="empty-state">Không có dữ liệu</div> : null}
+    </>
+  );
 
   return (
     <div className="page">
       <div className="page-header">
         <h2>Chấm công</h2>
-        <button className="btn btn-outline btn-sm" onClick={loadEmps}>Làm mới nhân viên</button>
+        <button className="btn btn-outline btn-sm" onClick={loadEmps}>Làm mới</button>
       </div>
 
       <div className="card">
@@ -169,7 +211,6 @@ export default function Attendance() {
                 {loading ? <span className="spinner" /> : null} Check Out
               </button>
             </div>
-            {renderRes()}
           </div>
         )}
 
@@ -194,79 +235,39 @@ export default function Attendance() {
                 </button>
               </div>
             </div>
-
-            {hData && Array.isArray(hData) && hData.length > 0 ? (
-              <>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>NV</th><th>Ngày</th><th>Check In</th><th>Check Out</th><th>Trạng thái</th><th>Giờ làm</th><th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hData.map(item => (
-                        <tr key={item.id}>
-                          <td><strong>{item.employeeCode}</strong><br /><small>{item.employeeName}</small></td>
-                          <td>{fmtDate(item.date)}</td>
-                          <td>{item.checkIn ? fmt(item.checkIn) : '—'}</td>
-                          <td>{item.checkOut ? fmt(item.checkOut) : '—'}</td>
-                          <td>{statusBadge(item.status)}</td>
-                          <td>{item.workedHours ? item.workedHours.toFixed(1) + 'h' : '—'}</td>
-                          <td>
-                            <div className="actions">
-                              <button className="btn-icon edit" title="Sửa" onClick={() => openEdit(item)}>✏️</button>
-                              <button className="btn-icon delete" title="Xóa" onClick={() => doDelete(item.id)}>🗑️</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <Pagination page={hPage} pageSize={PAGE_SIZE} totalCount={hTotal} onPageChange={onHistoryPage} />
-              </>
-            ) : hData ? (
-              <div className="empty-state">Không có dữ liệu</div>
-            ) : null}
-
-            {renderRes()}
+            {renderTable(hData, hPage, hTotal, p => { hSetPage(p); doSearch(p); })}
           </div>
         )}
 
         {tab === 'byemp' && (
           <div className="card-body">
-            <div className="field">
-              <label>Nhân viên</label>
-              <select id="att-emp" value={ciEmp} onChange={e => setCiEmp(e.target.value)}>
-                <option value="">Chọn nhân viên...</option>
-                {employees.map(e => (
-                  <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}</option>
-                ))}
-              </select>
+            <div className="form-row">
+              <div className="field">
+                <label>Nhân viên</label>
+                <select value={beEmp} onChange={e => { setBeEmp(e.target.value); setBeData(null); }}>
+                  <option value="">Chọn nhân viên...</option>
+                  {employees.map(e => (
+                    <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}{e.departmentName ? ` - ${e.departmentName}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>&nbsp;</label>
+                <button className="btn btn-primary w-full" onClick={() => doViewEmp(1)} disabled={loading || !beEmp}>
+                  {loading ? <span className="spinner" /> : null} Xem lịch sử
+                </button>
+              </div>
             </div>
-            <button className="btn btn-primary" disabled={loading || !ciEmp} onClick={async () => {
-              if (!ciEmp) return;
-              setLoading(true);
-              try { showResult('success', await api('GET', `/api/AttendanceRecords/employee/${ciEmp}/history`)); }
-              catch (e) { showResult('error', e.data || e.message); }
-              finally { setLoading(false); }
-            }}>
-              {loading ? <span className="spinner" /> : null} Xem lịch sử
-            </button>
-            {renderRes()}
+            {renderTable(beData, bePage, beTotal, p => { setBePage(p); doViewEmp(p); })}
           </div>
         )}
       </div>
 
-      {/* Edit Modal */}
       {editItem && (
         <div className="modal-overlay" onClick={() => setEditItem(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>Sửa bản ghi chấm công</h3>
-            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>
-              {editItem.employeeName} - {fmtDate(editItem.date)}
-            </p>
+            <h3>Sửa chấm công</h3>
+            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>{editItem.employeeName} - {fd(editItem.date)}</p>
             <div className="field"><label>Check In</label><input type="datetime-local" value={editForm.checkIn} onChange={e => setEditForm(f => ({ ...f, checkIn: e.target.value }))} /></div>
             <div className="field"><label>Check Out</label><input type="datetime-local" value={editForm.checkOut} onChange={e => setEditForm(f => ({ ...f, checkOut: e.target.value }))} /></div>
             <div className="field">
@@ -278,9 +279,7 @@ export default function Attendance() {
             <div className="field"><label>Ghi chú</label><input value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} placeholder="Ghi chú..." /></div>
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setEditItem(null)}>Hủy</button>
-              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>
-                {loading ? <span className="spinner" /> : null} Lưu
-              </button>
+              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>{loading ? <span className="spinner" /> : null} Lưu</button>
             </div>
           </div>
         </div>

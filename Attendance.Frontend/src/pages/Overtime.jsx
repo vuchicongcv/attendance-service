@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import Pagination from '../components/Pagination';
 
 const PAGE_SIZE = 10;
@@ -8,26 +9,19 @@ function TabBtn({ label, active, onClick }) {
   return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>{label}</button>;
 }
 
-const statusVn = { Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Từ chối', Cancelled: 'Đã hủy' };
-const statusBadge = (s) => {
-  const map = { Pending: 'badge-yellow', Approved: 'badge-green', Rejected: 'badge-red', Cancelled: 'badge-gray' };
-  return <span className={`badge ${map[s] || 'badge-gray'}`}>{statusVn[s] || s}</span>;
+const sVn = { Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Từ chối', Cancelled: 'Đã hủy' };
+const sBadge = (s) => {
+  const m = { Pending: 'badge-yellow', Approved: 'badge-green', Rejected: 'badge-red', Cancelled: 'badge-gray' };
+  return <span className={`badge ${m[s] || 'badge-gray'}`}>{sVn[s] || s}</span>;
 };
-
-function fmt(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('vi-VN');
-}
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN');
-}
+const fd = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const fdt = (d) => d ? new Date(d).toLocaleString('vi-VN') : '—';
 
 export default function Overtime() {
+  const { toast } = useToast();
   const [tab, setTab] = useState('create');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
 
   useEffect(() => { loadEmps(); }, []);
 
@@ -35,8 +29,6 @@ export default function Overtime() {
     try { const d = await api('GET', '/api/HRCore/employees'); setEmployees(Array.isArray(d) ? d : []); }
     catch { setEmployees([]); }
   };
-
-  const show = (type, data) => setResult({ type, data });
 
   // ─── Create ───
   const [emp, setEmp] = useState('');
@@ -46,17 +38,19 @@ export default function Overtime() {
   const [reason, setReason] = useState('');
 
   const doCreate = async () => {
-    if (!emp || !date) return;
+    if (!emp) return toast('Chọn nhân viên', 'error');
+    if (!date) return toast('Chọn ngày tăng ca', 'error');
     setLoading(true);
     try {
-      show('success', await api('POST', '/api/OvertimeRecords', {
+      await api('POST', '/api/OvertimeRecords', {
         employeeId: emp, date: new Date(date).toISOString(),
         startTime: start ? new Date(start).toISOString() : new Date().toISOString(),
         endTime: end ? new Date(end).toISOString() : new Date(Date.now() + 7200000).toISOString(),
         reason: reason || null,
-      }));
+      });
+      toast('Đã ghi nhận tăng ca', 'success');
       setEmp(''); setDate(''); setStart(''); setEnd(''); setReason('');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -71,11 +65,11 @@ export default function Overtime() {
     const params = [`page=${p || page}`, `pageSize=${PAGE_SIZE}`];
     if (fEmp) params.unshift(`employeeId=${fEmp}`);
     try {
-      const data = await api('GET', '/api/OvertimeRecords?' + params.join('&'));
-      setList(data.items || data);
-      setTotal(data.totalCount || 0);
-      setPage(data.page || 1);
-    } catch (e) { show('error', e.data || e.message); }
+      const d = await api('GET', '/api/OvertimeRecords?' + params.join('&'));
+      setList(d.items || d);
+      setTotal(d.totalCount || 0);
+      setPage(d.page || 1);
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -85,12 +79,13 @@ export default function Overtime() {
   const [apReason, setApReason] = useState('');
 
   const doApprove = async () => {
-    if (!apId) return;
+    if (!apId) return toast('Nhập mã bản ghi', 'error');
     setLoading(true);
     try {
-      show('success', await api('PATCH', `/api/OvertimeRecords/${apId}/approve`, { status: apStatus, rejectionReason: apReason || null }));
+      await api('PATCH', `/api/OvertimeRecords/${apId}/approve`, { status: apStatus, rejectionReason: apReason || null });
+      toast(`${apStatus === 'Approved' ? 'Đã duyệt' : 'Đã từ chối'} tăng ca`, 'success');
       setApId(''); setApReason('');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -115,9 +110,9 @@ export default function Overtime() {
         reason: editForm.reason || null,
       });
       setEditItem(null);
+      toast('Cập nhật thành công', 'success');
       doList(page);
-      show('success', 'Cập nhật thành công');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
   const doDelete = async (id) => {
@@ -125,9 +120,9 @@ export default function Overtime() {
     setLoading(true);
     try {
       await api('DELETE', `/api/OvertimeRecords/${id}`);
+      toast('Đã xóa', 'success');
       doList(page);
-      show('success', 'Đã xóa');
-    } catch (e) { show('error', e.data || e.message); }
+    } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -135,7 +130,7 @@ export default function Overtime() {
     <div className="page">
       <div className="page-header">
         <h2>Tăng ca</h2>
-        <button className="btn btn-outline btn-sm" onClick={loadEmps}>Làm mới nhân viên</button>
+        <button className="btn btn-outline btn-sm" onClick={loadEmps}>Làm mới</button>
       </div>
 
       <div className="card">
@@ -163,7 +158,7 @@ export default function Overtime() {
             </div>
             <div className="field"><label>Lý do</label><input value={reason} onChange={e => setReason(e.target.value)} placeholder="Lý do tăng ca" /></div>
             <button className="btn btn-success" onClick={doCreate} disabled={loading || !emp || !date}>
-              {loading ? <span className="spinner" /> : null} Ghi nhận tăng ca
+              {loading ? <span className="spinner" /> : null} Ghi nhận
             </button>
           </div>
         )}
@@ -175,9 +170,7 @@ export default function Overtime() {
                 <label>Nhân viên</label>
                 <select value={fEmp} onChange={e => { setFEmp(e.target.value); setPage(1); }}>
                   <option value="">Tất cả</option>
-                  {employees.map(e => (
-                    <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}</option>
-                  ))}
+                  {employees.map(e => <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}</option>)}
                 </select>
               </div>
               <div className="field">
@@ -188,7 +181,7 @@ export default function Overtime() {
               </div>
             </div>
 
-            {list && Array.isArray(list) && list.length > 0 ? (
+            {list && list.length > 0 ? (
               <>
                 <div className="table-wrap">
                   <table className="data-table">
@@ -201,16 +194,16 @@ export default function Overtime() {
                       {list.map(item => (
                         <tr key={item.id}>
                           <td><strong>{item.employeeCode}</strong><br /><small>{item.employeeName}</small></td>
-                          <td>{fmtDate(item.date)}</td>
-                          <td>{fmt(item.startTime)}</td>
-                          <td>{fmt(item.endTime)}</td>
+                          <td>{fd(item.date)}</td>
+                          <td>{fdt(item.startTime)}</td>
+                          <td>{fdt(item.endTime)}</td>
                           <td>{item.hours ? item.hours.toFixed(1) + 'h' : '—'}</td>
-                          <td>{statusBadge(item.status)}</td>
+                          <td>{sBadge(item.status)}</td>
                           <td><small>{item.reason || '—'}</small></td>
                           <td>
                             <div className="actions">
-                              <button className="btn-icon edit" title="Sửa" onClick={() => openEdit(item)}>✏️</button>
-                              <button className="btn-icon delete" title="Xóa" onClick={() => doDelete(item.id)}>🗑️</button>
+                              <button className="btn-icon edit" onClick={() => openEdit(item)}>✏️</button>
+                              <button className="btn-icon delete" onClick={() => doDelete(item.id)}>🗑️</button>
                             </div>
                           </td>
                         </tr>
@@ -229,7 +222,7 @@ export default function Overtime() {
             <div className="form-row">
               <div className="field">
                 <label>Mã bản ghi</label>
-                <input value={apId} onChange={e => setApId(e.target.value)} placeholder="UUID của bản ghi tăng ca" />
+                <input value={apId} onChange={e => setApId(e.target.value)} placeholder="UUID bản ghi tăng ca" />
               </div>
               <div className="field">
                 <label>Trạng thái</label>
@@ -248,26 +241,13 @@ export default function Overtime() {
             </button>
           </div>
         )}
-
-        {result && (
-          <div className="card-body">
-            <div className="output">
-              <span className={result.type === 'success' ? 'success' : 'error'}>
-                {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : String(result.data)}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Edit Modal */}
       {editItem && (
         <div className="modal-overlay" onClick={() => setEditItem(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>Sửa bản ghi tăng ca</h3>
-            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>
-              {editItem.employeeName} - {fmtDate(editItem.date)}
-            </p>
+            <h3>Sửa tăng ca</h3>
+            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>{editItem.employeeName} - {fd(editItem.date)}</p>
             <div className="field"><label>Ngày</label><input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} /></div>
             <div className="form-row">
               <div className="field"><label>Bắt đầu</label><input type="datetime-local" value={editForm.startTime} onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))} /></div>
@@ -276,9 +256,7 @@ export default function Overtime() {
             <div className="field"><label>Lý do</label><input value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} /></div>
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setEditItem(null)}>Hủy</button>
-              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>
-                {loading ? <span className="spinner" /> : null} Lưu
-              </button>
+              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>{loading ? <span className="spinner" /> : null} Lưu</button>
             </div>
           </div>
         </div>

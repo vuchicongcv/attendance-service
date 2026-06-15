@@ -804,6 +804,93 @@ table.data-table .btn-icon.delete:hover { background: rgba(220,38,38,0.06); bord
   justify-content: flex-end;
 }
 
+/* ─── Toast ─── */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+}
+
+.toast {
+  padding: 14px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.3s var(--ease);
+  border-left: 3px solid;
+}
+
+.toast.success {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left-color: #059669;
+  color: #059669;
+}
+
+.toast.error {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left-color: #dc2626;
+  color: #dc2626;
+}
+
+.toast.info {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Summary Report Table ─── */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.summary-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.summary-card .emp-name {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.summary-card .emp-code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted-fg);
+}
+
+.summary-card .stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.summary-card .stat-row:last-child { border-bottom: none; }
+
+.summary-card .stat-row .val { font-weight: 600; }
+
 /* ─── Responsive Sidebar ─── */
 @media (max-width: 768px) {
   .sidebar {
