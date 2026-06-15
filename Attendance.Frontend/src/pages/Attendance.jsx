@@ -104,13 +104,14 @@ export default function Attendance() {
   };
 
   // ─── Edit ───
+  const now = () => new Date().toISOString().slice(0, 16);
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const openEdit = (item) => {
     setEditItem(item);
     setEditForm({
-      checkIn: item.checkIn ? item.checkIn.slice(0, 16) : '',
-      checkOut: item.checkOut ? item.checkOut.slice(0, 16) : '',
+      checkIn: item.checkIn ? item.checkIn.slice(0, 16) : now(),
+      checkOut: item.checkOut ? item.checkOut.slice(0, 16) : now(),
       status: item.status,
       note: item.note || '',
     });
@@ -270,8 +271,8 @@ export default function Attendance() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>Sửa chấm công</h3>
             <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>{editItem.employeeName} - {fd(editItem.date)}</p>
-            <div className="field"><label>Check In</label><input type="datetime-local" value={editForm.checkIn} onChange={e => setEditForm(f => ({ ...f, checkIn: e.target.value }))} /></div>
-            <div className="field"><label>Check Out</label><input type="datetime-local" value={editForm.checkOut} onChange={e => setEditForm(f => ({ ...f, checkOut: e.target.value }))} /></div>
+            <div className="field"><label>Check In</label><div className="input-row"><input type="datetime-local" value={editForm.checkIn} onChange={e => setEditForm(f => ({ ...f, checkIn: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, checkIn: now() }))}>Bây giờ</button></div></div>
+            <div className="field"><label>Check Out</label><div className="input-row"><input type="datetime-local" value={editForm.checkOut} onChange={e => setEditForm(f => ({ ...f, checkOut: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, checkOut: now() }))}>Bây giờ</button></div></div>
             <div className="field">
               <label>Trạng thái</label>
               <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>

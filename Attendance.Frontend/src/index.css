@@ -597,6 +597,13 @@ body {
   font-size: 12px;
 }
 
+.input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.input-row input { flex: 1; }
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
