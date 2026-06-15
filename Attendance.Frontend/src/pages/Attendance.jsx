@@ -15,22 +15,22 @@ function badge(s) {
   return <span className={`badge ${m[s] || 'badge-gray'}`}>{v[s] || s}</span>;
 }
 
-function fd(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN');
-}
-function fdt(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('vi-VN');
-}
+function fd(d) { return d ? new Date(d).toLocaleDateString('vi-VN') : '—'; }
+function fdt(d) { return d ? new Date(d).toLocaleString('vi-VN') : '—'; }
+function ft(d) { return d ? new Date(d).toLocaleTimeString('vi-VN') : '—'; }
+
+const vnNow = () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T').slice(0, 16);
+const vnDate = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
 
 export default function Attendance() {
   const { toast } = useToast();
   const [tab, setTab] = useState('checkin');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [clock, setClock] = useState(new Date().toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }));
 
   useEffect(() => { loadEmps(); }, []);
+  useEffect(() => { const i = setInterval(() => setClock(new Date().toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })), 1000); return () => clearInterval(i); }, []);
 
   const loadEmps = async () => {
     try { const d = await api('GET', '/api/HRCore/employees'); setEmployees(Array.isArray(d) ? d : []); }
@@ -59,7 +59,7 @@ export default function Attendance() {
     finally { setLoading(false); }
   };
 
-  // ─── History (table + phân trang) ───
+  // ─── History ───
   const [hFrom, hSetFrom] = useState('');
   const [hTo, hSetTo] = useState('');
   const [hStatus, hSetStatus] = useState('');
@@ -84,7 +84,7 @@ export default function Attendance() {
     finally { setLoading(false); }
   };
 
-  // ─── By Employee (table + phân trang) ───
+  // ─── By Employee ───
   const [beEmp, setBeEmp] = useState('');
   const [beData, setBeData] = useState(null);
   const [beTotal, setBeTotal] = useState(0);
@@ -104,14 +104,14 @@ export default function Attendance() {
   };
 
   // ─── Edit ───
-  const vnNow = () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T').slice(0, 16);
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const openEdit = (item) => {
     setEditItem(item);
+    const capture = vnNow();
     setEditForm({
-      checkIn: item.checkIn ? item.checkIn.slice(0, 16) : vnNow(),
-      checkOut: item.checkOut ? item.checkOut.slice(0, 16) : vnNow(),
+      checkIn: item.checkIn || capture,
+      checkOut: item.checkOut || capture,
       status: item.status,
       note: item.note || '',
     });
@@ -120,8 +120,8 @@ export default function Attendance() {
     setLoading(true);
     try {
       await api('PUT', `/api/AttendanceRecords/${editItem.id}`, {
-        checkIn: editForm.checkIn ? new Date(editForm.checkIn).toISOString() : null,
-        checkOut: editForm.checkOut ? new Date(editForm.checkOut).toISOString() : null,
+        checkIn: new Date(editForm.checkIn).toISOString(),
+        checkOut: new Date(editForm.checkOut).toISOString(),
         status: editForm.status,
         note: editForm.note || null,
       });
@@ -197,6 +197,10 @@ export default function Attendance() {
 
         {tab === 'checkin' && (
           <div className="card-body">
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.03em', fontFamily: 'var(--mono)' }}>{clock}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted-fg)' }}>{new Date().toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+            </div>
             <div className="field">
               <label>Nhân viên</label>
               <select value={ciEmp} onChange={e => setCiEmp(e.target.value)}>
@@ -270,9 +274,12 @@ export default function Attendance() {
         <div className="modal-overlay" onClick={() => setEditItem(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>Sửa chấm công</h3>
-            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>{editItem.employeeName} - {fd(editItem.date)}</p>
-            <div className="field"><label>Check In</label><div className="input-row"><input type="datetime-local" value={editForm.checkIn} onChange={e => setEditForm(f => ({ ...f, checkIn: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, checkIn: vnNow() }))}>Bây giờ</button></div></div>
-            <div className="field"><label>Check Out</label><div className="input-row"><input type="datetime-local" value={editForm.checkOut} onChange={e => setEditForm(f => ({ ...f, checkOut: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, checkOut: vnNow() }))}>Bây giờ</button></div></div>
+            <div className="modal-info">
+              <div><strong>{editItem.employeeName}</strong> <small style={{ color: 'var(--muted-fg)' }}>({editItem.employeeCode})</small></div>
+              <div style={{ marginTop: 4, color: 'var(--muted-fg)', fontSize: 12 }}>{fd(editItem.date)}</div>
+            </div>
+            <div className="field"><label>Check In</label><div className="time-display">{ft(editForm.checkIn)}</div></div>
+            <div className="field"><label>Check Out</label><div className="time-display">{ft(editForm.checkOut)}</div></div>
             <div className="field">
               <label>Trạng thái</label>
               <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>

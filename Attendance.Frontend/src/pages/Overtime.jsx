@@ -16,6 +16,8 @@ const sBadge = (s) => {
 };
 const fd = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const fdt = (d) => d ? new Date(d).toLocaleString('vi-VN') : '—';
+const vnNow = () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T').slice(0, 16);
+const vnDate = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
 
 export default function Overtime() {
   const { toast } = useToast();
@@ -32,10 +34,28 @@ export default function Overtime() {
 
   // ─── Create ───
   const [emp, setEmp] = useState('');
-  const [date, setDate] = useState('');
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
+  const [date, setDate] = useState(vnDate());
   const [reason, setReason] = useState('');
+
+  // auto-capture at render
+  const [autoStart, setAutoStart] = useState(vnNow());
+  const [autoEnd, setAutoEnd] = useState(() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 2);
+    return d.toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T').slice(0, 16);
+  });
+
+  useEffect(() => {
+    const tick = () => {
+      setAutoStart(vnNow());
+      const d = new Date();
+      d.setHours(d.getHours() + 2);
+      setAutoEnd(d.toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T').slice(0, 16));
+    };
+    tick();
+    const i = setInterval(tick, 60000);
+    return () => clearInterval(i);
+  }, []);
 
   const doCreate = async () => {
     if (!emp) return toast('Chọn nhân viên', 'error');
@@ -44,12 +64,12 @@ export default function Overtime() {
     try {
       await api('POST', '/api/OvertimeRecords', {
         employeeId: emp, date: new Date(date).toISOString(),
-        startTime: start ? new Date(start).toISOString() : new Date().toISOString(),
-        endTime: end ? new Date(end).toISOString() : new Date(Date.now() + 7200000).toISOString(),
+        startTime: new Date(autoStart).toISOString(),
+        endTime: new Date(autoEnd).toISOString(),
         reason: reason || null,
       });
       toast('Đã ghi nhận tăng ca', 'success');
-      setEmp(''); setDate(''); setStart(''); setEnd(''); setReason('');
+      setEmp(''); setDate(vnDate()); setReason('');
       setTab('list');
       doList(1);
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi', 'error'); }
@@ -88,15 +108,13 @@ export default function Overtime() {
   };
 
   // ─── Edit ───
-  const vnNow = () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T').slice(0, 16);
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const openEdit = (item) => {
     setEditItem(item);
     setEditForm({
-      date: item.date ? item.date.slice(0, 10) : new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
-      startTime: item.startTime ? item.startTime.slice(0, 16) : vnNow(),
-      endTime: item.endTime ? item.endTime.slice(0, 16) : vnNow(),
+      startTime: item.startTime || vnNow(),
+      endTime: item.endTime || vnNow(),
       reason: item.reason || '',
     });
   };
@@ -104,8 +122,8 @@ export default function Overtime() {
     setLoading(true);
     try {
       await api('PUT', `/api/OvertimeRecords/${editItem.id}`, {
-        startTime: editForm.startTime ? new Date(editForm.startTime).toISOString() : null,
-        endTime: editForm.endTime ? new Date(editForm.endTime).toISOString() : null,
+        startTime: new Date(editForm.startTime).toISOString(),
+        endTime: new Date(editForm.endTime).toISOString(),
         reason: editForm.reason || null,
       });
       setEditItem(null);
@@ -150,9 +168,12 @@ export default function Overtime() {
               </select>
             </div>
             <div className="field"><label>Ngày</label><input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
-            <div className="form-row">
-              <div className="field"><label>Bắt đầu</label><input type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /></div>
-              <div className="field"><label>Kết thúc</label><input type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} /></div>
+            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 16, border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted-fg)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Giờ tự động</div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+                <div><span style={{ color: 'var(--muted-fg)' }}>Bắt đầu:</span> <strong>{new Date(autoStart).toLocaleTimeString('vi-VN')}</strong></div>
+                <div><span style={{ color: 'var(--muted-fg)' }}>Kết thúc:</span> <strong>{new Date(autoEnd).toLocaleTimeString('vi-VN')}</strong></div>
+              </div>
             </div>
             <div className="field"><label>Lý do</label><input value={reason} onChange={e => setReason(e.target.value)} placeholder="Lý do tăng ca" /></div>
             <button className="btn btn-success" onClick={doCreate} disabled={loading || !emp || !date}>
@@ -226,12 +247,12 @@ export default function Overtime() {
         <div className="modal-overlay" onClick={() => setEditItem(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>Sửa tăng ca</h3>
-            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>{editItem.employeeName} - {fd(editItem.date)}</p>
-            <div className="field"><label>Ngày</label><input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} /></div>
-            <div className="form-row">
-              <div className="field"><label>Bắt đầu</label><div className="input-row"><input type="datetime-local" value={editForm.startTime} onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, startTime: vnNow() }))}>Bây giờ</button></div></div>
-              <div className="field"><label>Kết thúc</label><div className="input-row"><input type="datetime-local" value={editForm.endTime} onChange={e => setEditForm(f => ({ ...f, endTime: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, endTime: vnNow() }))}>Bây giờ</button></div></div>
+            <div className="modal-info">
+              <div><strong>{editItem.employeeName}</strong> <small style={{ color: 'var(--muted-fg)' }}>({editItem.employeeCode})</small></div>
+              <div style={{ marginTop: 4, color: 'var(--muted-fg)', fontSize: 12 }}>{fd(editItem.date)}</div>
             </div>
+            <div className="field"><label>Bắt đầu</label><div className="time-display">{fdt(editForm.startTime)}</div></div>
+            <div className="field"><label>Kết thúc</label><div className="time-display">{fdt(editForm.endTime)}</div></div>
             <div className="field"><label>Lý do</label><input value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} /></div>
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setEditItem(null)}>Hủy</button>
