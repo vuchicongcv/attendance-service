@@ -1196,9 +1196,7 @@
             const parent = el.closest('.card-body');
             parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
-            parent.querySelectorAll('[id]').forEach(e => {
-                if (/^(att-|leave-|ot-|hol-)/.test(e.id)) e.style.display = 'none';
-            });
+            parent.querySelectorAll(':scope > [id]').forEach(e => e.style.display = 'none');
             document.getElementById(tabId).style.display = 'block';
         }
 
@@ -1248,12 +1246,13 @@
                 badge.className = 'status-badge online';
                 toast('Connected successfully', 'success');
                 loadDashboard();
-                loadEmployees();
             } catch (e) {
                 const badge = document.getElementById('connectionStatus');
                 badge.innerHTML = '<span class="dot"></span> disconnected';
                 badge.className = 'status-badge offline';
                 if (e.status !== 401) toast('Connection failed: ' + (e.data?.message || e.message), 'error');
+            } finally {
+                loadEmployees();
             }
         }
 
