@@ -39,22 +39,43 @@ export default function Attendance() {
 
   // ─── Check In/Out ───
   const [ciEmp, setCiEmp] = useState('');
+  const [ciStatus, setCiStatus] = useState(null);
+  const [ciRecord, setCiRecord] = useState(null);
+  const ft2 = (d) => d ? new Date(d).toLocaleTimeString('vi-VN') : '';
+
+  const fetchToday = async (empId) => {
+    if (!empId) { setCiStatus(null); setCiRecord(null); return; }
+    try {
+      const d = await api('GET', `/api/AttendanceRecords/employee/${empId}/today`);
+      setCiRecord(d);
+      setCiStatus(d.checkOut ? 'done' : 'checked-in');
+    } catch {
+      setCiRecord(null);
+      setCiStatus('none');
+    }
+  };
+  useEffect(() => { fetchToday(ciEmp); }, [ciEmp]);
+
   const doCheckIn = async () => {
     if (!ciEmp) return toast('Chọn nhân viên', 'error');
     setLoading(true);
     try {
       const d = await api('POST', '/api/AttendanceRecords/check-in', { employeeId: ciEmp, checkIn: new Date().toISOString() });
-      toast(`Check-in thành công: ${d.employeeName || ''} - ${d.status || ''}`, 'success');
+      setCiRecord(d);
+      setCiStatus(d.status === 'Late' ? 'checked-in' : 'checked-in');
+      toast(`Check-in ${d.status === 'Late' ? 'muộn' : 'thành công'} lúc ${ft2(d.checkIn)}`, d.status === 'Late' ? 'info' : 'success');
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi check-in', 'error'); }
     finally { setLoading(false); }
   };
   const doCheckOut = async () => {
     if (!ciEmp) return toast('Chọn nhân viên', 'error');
+    if (!ciRecord) return toast('Nhân viên chưa check-in', 'error');
     setLoading(true);
     try {
-      const today = await api('GET', `/api/AttendanceRecords/employee/${ciEmp}/today`);
-      const d = await api('PATCH', `/api/AttendanceRecords/${today.id}/check-out`, { checkOut: new Date().toISOString() });
-      toast(`Check-out thành công: ${d.employeeName} - ${d.workedHours?.toFixed(1) || ''}h`, 'success');
+      const d = await api('PATCH', `/api/AttendanceRecords/${ciRecord.id}/check-out`, { checkOut: new Date().toISOString() });
+      setCiRecord(d);
+      setCiStatus('done');
+      toast(`Check-out thành công lúc ${ft2(d.checkOut)} - ${d.workedHours?.toFixed(1) || ''}h`, 'success');
     } catch (e) { toast(e.data?.message || e.message || 'Lỗi check-out', 'error'); }
     finally { setLoading(false); }
   };
@@ -210,11 +231,18 @@ export default function Attendance() {
                 ))}
               </select>
             </div>
+            {ciEmp && (
+              <div className="status-box">
+                {ciStatus === 'none' && <><span className="dot-warn" /> Chưa check-in hôm nay</>}
+                {ciStatus === 'checked-in' && <><span className="dot-ok" /> Đã check-in lúc <strong>{ft2(ciRecord?.checkIn)}</strong></>}
+                {ciStatus === 'done' && <><span className="dot-ok" /> Đã hoàn thành: check-in {ft2(ciRecord?.checkIn)} → check-out {ft2(ciRecord?.checkOut)}</>}
+              </div>
+            )}
             <div className="form-row">
-              <button className="btn btn-success flex-1" onClick={doCheckIn} disabled={loading || !ciEmp}>
+              <button className="btn btn-success flex-1" onClick={doCheckIn} disabled={loading || !ciEmp || ciStatus === 'checked-in' || ciStatus === 'done'}>
                 {loading ? <span className="spinner" /> : null} Check In
               </button>
-              <button className="btn btn-warning flex-1" onClick={doCheckOut} disabled={loading || !ciEmp}>
+              <button className="btn btn-warning flex-1" onClick={doCheckOut} disabled={loading || !ciEmp || !ciRecord || ciStatus === 'none' || ciStatus === 'done'}>
                 {loading ? <span className="spinner" /> : null} Check Out
               </button>
             </div>

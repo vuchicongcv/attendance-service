@@ -620,6 +620,25 @@ body {
   .form-row, .form-row-3 { grid-template-columns: 1fr; }
 }
 
+.status-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.dot-warn, .dot-ok {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-warn { background: #d97706; }
+.dot-ok { background: #059669; }
+
 .checkbox-label {
   display: flex !important;
   align-items: center;
