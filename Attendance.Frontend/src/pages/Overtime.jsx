@@ -88,15 +88,15 @@ export default function Overtime() {
   };
 
   // ─── Edit ───
-  const now = () => new Date().toISOString().slice(0, 16);
+  const vnNow = () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T').slice(0, 16);
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const openEdit = (item) => {
     setEditItem(item);
     setEditForm({
-      date: item.date ? item.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
-      startTime: item.startTime ? item.startTime.slice(0, 16) : now(),
-      endTime: item.endTime ? item.endTime.slice(0, 16) : now(),
+      date: item.date ? item.date.slice(0, 10) : new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
+      startTime: item.startTime ? item.startTime.slice(0, 16) : vnNow(),
+      endTime: item.endTime ? item.endTime.slice(0, 16) : vnNow(),
       reason: item.reason || '',
     });
   };
@@ -229,8 +229,8 @@ export default function Overtime() {
             <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>{editItem.employeeName} - {fd(editItem.date)}</p>
             <div className="field"><label>Ngày</label><input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} /></div>
             <div className="form-row">
-              <div className="field"><label>Bắt đầu</label><div className="input-row"><input type="datetime-local" value={editForm.startTime} onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, startTime: now() }))}>Bây giờ</button></div></div>
-              <div className="field"><label>Kết thúc</label><div className="input-row"><input type="datetime-local" value={editForm.endTime} onChange={e => setEditForm(f => ({ ...f, endTime: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, endTime: now() }))}>Bây giờ</button></div></div>
+              <div className="field"><label>Bắt đầu</label><div className="input-row"><input type="datetime-local" value={editForm.startTime} onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, startTime: vnNow() }))}>Bây giờ</button></div></div>
+              <div className="field"><label>Kết thúc</label><div className="input-row"><input type="datetime-local" value={editForm.endTime} onChange={e => setEditForm(f => ({ ...f, endTime: e.target.value }))} /><button className="btn btn-sm btn-outline" style={{ flexShrink: 0 }} onClick={() => setEditForm(f => ({ ...f, endTime: vnNow() }))}>Bây giờ</button></div></div>
             </div>
             <div className="field"><label>Lý do</label><input value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} /></div>
             <div className="modal-actions">
