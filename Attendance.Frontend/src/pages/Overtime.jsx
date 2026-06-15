@@ -1,179 +1,288 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import Pagination from '../components/Pagination';
 
-function TabButton({ label, active, onClick }) {
-  return (
-    <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>
-      {label}
-    </button>
-  );
+const PAGE_SIZE = 10;
+
+function TabBtn({ label, active, onClick }) {
+  return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>{label}</button>;
+}
+
+const statusVn = { Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Từ chối', Cancelled: 'Đã hủy' };
+const statusBadge = (s) => {
+  const map = { Pending: 'badge-yellow', Approved: 'badge-green', Rejected: 'badge-red', Cancelled: 'badge-gray' };
+  return <span className={`badge ${map[s] || 'badge-gray'}`}>{statusVn[s] || s}</span>;
+};
+
+function fmt(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('vi-VN');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('vi-VN');
 }
 
 export default function Overtime() {
-  const [activeTab, setActiveTab] = useState('create');
+  const [tab, setTab] = useState('create');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState(null);
+  const [result, setResult] = useState(null);
 
-  useEffect(() => { loadEmployees(); }, []);
+  useEffect(() => { loadEmps(); }, []);
 
-  const loadEmployees = async () => {
-    try {
-      const data = await api('GET', '/api/HRCore/employees');
-      setEmployees(Array.isArray(data) ? data : []);
-    } catch { setEmployees([]); }
+  const loadEmps = async () => {
+    try { const d = await api('GET', '/api/HRCore/employees'); setEmployees(Array.isArray(d) ? d : []); }
+    catch { setEmployees([]); }
   };
 
-  // Tab: Create
-  const [otEmp, setOtEmp] = useState('');
-  const [otDate, setOtDate] = useState('');
-  const [otStart, setOtStart] = useState('');
-  const [otEnd, setOtEnd] = useState('');
-  const [otReason, setOtReason] = useState('');
+  const show = (type, data) => setResult({ type, data });
 
-  const handleCreate = async () => {
-    if (!otEmp || !otDate) return;
+  // ─── Create ───
+  const [emp, setEmp] = useState('');
+  const [date, setDate] = useState('');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [reason, setReason] = useState('');
+
+  const doCreate = async () => {
+    if (!emp || !date) return;
     setLoading(true);
     try {
-      const data = await api('POST', '/api/OvertimeRecords', {
-        employeeId: otEmp,
-        date: new Date(otDate).toISOString(),
-        startTime: otStart ? new Date(otStart).toISOString() : new Date().toISOString(),
-        endTime: otEnd ? new Date(otEnd).toISOString() : new Date(Date.now() + 7200000).toISOString(),
-        reason: otReason || null,
+      show('success', await api('POST', '/api/OvertimeRecords', {
+        employeeId: emp, date: new Date(date).toISOString(),
+        startTime: start ? new Date(start).toISOString() : new Date().toISOString(),
+        endTime: end ? new Date(end).toISOString() : new Date(Date.now() + 7200000).toISOString(),
+        reason: reason || null,
+      }));
+      setEmp(''); setDate(''); setStart(''); setEnd(''); setReason('');
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
+  };
+
+  // ─── List ───
+  const [fEmp, setFEmp] = useState('');
+  const [list, setList] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+
+  const doList = async (p) => {
+    setLoading(true);
+    const params = [`page=${p || page}`, `pageSize=${PAGE_SIZE}`];
+    if (fEmp) params.unshift(`employeeId=${fEmp}`);
+    try {
+      const data = await api('GET', '/api/OvertimeRecords?' + params.join('&'));
+      setList(data.items || data);
+      setTotal(data.totalCount || 0);
+      setPage(data.page || 1);
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
+  };
+
+  // ─── Approve ───
+  const [apId, setApId] = useState('');
+  const [apStatus, setApStatus] = useState('Approved');
+  const [apReason, setApReason] = useState('');
+
+  const doApprove = async () => {
+    if (!apId) return;
+    setLoading(true);
+    try {
+      show('success', await api('PATCH', `/api/OvertimeRecords/${apId}/approve`, { status: apStatus, rejectionReason: apReason || null }));
+      setApId(''); setApReason('');
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
+  };
+
+  // ─── Edit ───
+  const [editItem, setEditItem] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const openEdit = (item) => {
+    setEditItem(item);
+    setEditForm({
+      date: item.date ? item.date.slice(0, 10) : '',
+      startTime: item.startTime ? item.startTime.slice(0, 16) : '',
+      endTime: item.endTime ? item.endTime.slice(0, 16) : '',
+      reason: item.reason || '',
+    });
+  };
+  const doEdit = async () => {
+    setLoading(true);
+    try {
+      await api('PUT', `/api/OvertimeRecords/${editItem.id}`, {
+        startTime: editForm.startTime ? new Date(editForm.startTime).toISOString() : null,
+        endTime: editForm.endTime ? new Date(editForm.endTime).toISOString() : null,
+        reason: editForm.reason || null,
       });
-      setOutput({ type: 'success', data });
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
+      setEditItem(null);
+      doList(page);
+      show('success', 'Cập nhật thành công');
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
   };
-
-  // Tab: List
-  const [otFilter, setOtFilter] = useState('');
-
-  const handleList = async () => {
+  const doDelete = async (id) => {
+    if (!confirm('Xóa bản ghi tăng ca này?')) return;
     setLoading(true);
     try {
-      const data = await api('GET', '/api/OvertimeRecords' + (otFilter ? `?employeeId=${otFilter}` : ''));
-      setOutput({ type: 'success', data });
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
-  };
-
-  // Tab: Approve
-  const [approveId, setApproveId] = useState('');
-  const [approveStatus, setApproveStatus] = useState('Approved');
-  const [approveReason, setApproveReason] = useState('');
-
-  const handleApprove = async () => {
-    if (!approveId) return;
-    setLoading(true);
-    try {
-      const data = await api('PATCH', `/api/OvertimeRecords/${approveId}/approve`, {
-        status: approveStatus,
-        rejectionReason: approveReason || null,
-      });
-      setOutput({ type: 'success', data });
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
+      await api('DELETE', `/api/OvertimeRecords/${id}`);
+      doList(page);
+      show('success', 'Đã xóa');
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
   };
 
   return (
     <div className="page">
       <div className="page-header">
-        <h2>Overtime</h2>
-        <button className="btn btn-outline btn-sm" onClick={loadEmployees}>Refresh Employees</button>
+        <h2>Tăng ca</h2>
+        <button className="btn btn-outline btn-sm" onClick={loadEmps}>Làm mới nhân viên</button>
       </div>
 
       <div className="card">
         <div className="tabs">
-          <TabButton label="Create" active={activeTab === 'create'} onClick={() => setActiveTab('create')} />
-          <TabButton label="List" active={activeTab === 'list'} onClick={() => setActiveTab('list')} />
-          <TabButton label="Approve" active={activeTab === 'approve'} onClick={() => setActiveTab('approve')} />
+          <TabBtn label="Tạo mới" active={tab === 'create'} onClick={() => setTab('create')} />
+          <TabBtn label="Danh sách" active={tab === 'list'} onClick={() => { setTab('list'); if (!list) doList(1); }} />
+          <TabBtn label="Duyệt" active={tab === 'approve'} onClick={() => setTab('approve')} />
         </div>
 
-        {activeTab === 'create' && (
+        {tab === 'create' && (
           <div className="card-body">
             <div className="field">
-              <label>Employee</label>
-              <select value={otEmp} onChange={e => setOtEmp(e.target.value)}>
-                <option value="">Select employee...</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    [{emp.employeeCode}] {emp.fullName}{emp.departmentName ? ` - ${emp.departmentName}` : ''}
-                  </option>
+              <label>Nhân viên</label>
+              <select value={emp} onChange={e => setEmp(e.target.value)}>
+                <option value="">Chọn nhân viên...</option>
+                {employees.map(e => (
+                  <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}{e.departmentName ? ` - ${e.departmentName}` : ''}</option>
                 ))}
               </select>
             </div>
-            <div className="field"><label>Date</label><input type="date" value={otDate} onChange={e => setOtDate(e.target.value)} /></div>
+            <div className="field"><label>Ngày</label><input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
             <div className="form-row">
-              <div className="field"><label>Start</label><input type="datetime-local" value={otStart} onChange={e => setOtStart(e.target.value)} /></div>
-              <div className="field"><label>End</label><input type="datetime-local" value={otEnd} onChange={e => setOtEnd(e.target.value)} /></div>
+              <div className="field"><label>Bắt đầu</label><input type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /></div>
+              <div className="field"><label>Kết thúc</label><input type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} /></div>
             </div>
-            <div className="field"><label>Reason</label><input value={otReason} onChange={e => setOtReason(e.target.value)} placeholder="Reason" /></div>
-            <button className="btn btn-success" onClick={handleCreate} disabled={loading || !otEmp}>
-              {loading ? <span className="spinner" /> : null} Record Overtime
+            <div className="field"><label>Lý do</label><input value={reason} onChange={e => setReason(e.target.value)} placeholder="Lý do tăng ca" /></div>
+            <button className="btn btn-success" onClick={doCreate} disabled={loading || !emp || !date}>
+              {loading ? <span className="spinner" /> : null} Ghi nhận tăng ca
             </button>
           </div>
         )}
 
-        {activeTab === 'list' && (
-          <div className="card-body">
-            <div className="field">
-              <label>Employee</label>
-              <select value={otFilter} onChange={e => setOtFilter(e.target.value)}>
-                <option value="">All</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    [{emp.employeeCode}] {emp.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button className="btn btn-primary" onClick={handleList} disabled={loading}>
-              {loading ? <span className="spinner" /> : null} Search
-            </button>
-          </div>
-        )}
-
-        {activeTab === 'approve' && (
+        {tab === 'list' && (
           <div className="card-body">
             <div className="form-row">
               <div className="field">
-                <label>Record ID</label>
-                <input value={approveId} onChange={e => setApproveId(e.target.value)} placeholder="Overtime UUID" />
+                <label>Nhân viên</label>
+                <select value={fEmp} onChange={e => { setFEmp(e.target.value); setPage(1); }}>
+                  <option value="">Tất cả</option>
+                  {employees.map(e => (
+                    <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}</option>
+                  ))}
+                </select>
               </div>
               <div className="field">
-                <label>Status</label>
-                <select value={approveStatus} onChange={e => setApproveStatus(e.target.value)}>
-                  <option>Approved</option><option>Rejected</option>
+                <label>&nbsp;</label>
+                <button className="btn btn-primary w-full" onClick={() => doList(1)} disabled={loading}>
+                  {loading ? <span className="spinner" /> : null} Tìm kiếm
+                </button>
+              </div>
+            </div>
+
+            {list && Array.isArray(list) && list.length > 0 ? (
+              <>
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>NV</th><th>Ngày</th><th>Bắt đầu</th><th>Kết thúc</th><th>Giờ</th><th>Trạng thái</th><th>Lý do</th><th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map(item => (
+                        <tr key={item.id}>
+                          <td><strong>{item.employeeCode}</strong><br /><small>{item.employeeName}</small></td>
+                          <td>{fmtDate(item.date)}</td>
+                          <td>{fmt(item.startTime)}</td>
+                          <td>{fmt(item.endTime)}</td>
+                          <td>{item.hours ? item.hours.toFixed(1) + 'h' : '—'}</td>
+                          <td>{statusBadge(item.status)}</td>
+                          <td><small>{item.reason || '—'}</small></td>
+                          <td>
+                            <div className="actions">
+                              <button className="btn-icon edit" title="Sửa" onClick={() => openEdit(item)}>✏️</button>
+                              <button className="btn-icon delete" title="Xóa" onClick={() => doDelete(item.id)}>🗑️</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={p => { setPage(p); doList(p); }} />
+              </>
+            ) : list ? <div className="empty-state">Không có dữ liệu</div> : null}
+          </div>
+        )}
+
+        {tab === 'approve' && (
+          <div className="card-body">
+            <div className="form-row">
+              <div className="field">
+                <label>Mã bản ghi</label>
+                <input value={apId} onChange={e => setApId(e.target.value)} placeholder="UUID của bản ghi tăng ca" />
+              </div>
+              <div className="field">
+                <label>Trạng thái</label>
+                <select value={apStatus} onChange={e => setApStatus(e.target.value)}>
+                  <option value="Approved">Duyệt</option>
+                  <option value="Rejected">Từ chối</option>
                 </select>
               </div>
             </div>
             <div className="field">
-              <label>Rejection Reason</label>
-              <input value={approveReason} onChange={e => setApproveReason(e.target.value)} placeholder="If rejected..." />
+              <label>Lý do từ chối</label>
+              <input value={apReason} onChange={e => setApReason(e.target.value)} placeholder="Nhập lý do nếu từ chối..." />
             </div>
-            <button className="btn btn-warning" onClick={handleApprove} disabled={loading || !approveId}>
-              {loading ? <span className="spinner" /> : null} Submit Review
+            <button className="btn btn-warning" onClick={doApprove} disabled={loading || !apId}>
+              {loading ? <span className="spinner" /> : null} Xác nhận
             </button>
           </div>
         )}
 
-        <div className="card-body">
-          <div className="output">
-            {output ? (
-              <span className={output.type === 'success' ? 'success' : 'error'}>
-                {typeof output.data === 'object' ? JSON.stringify(output.data, null, 2) : String(output.data)}
+        {result && (
+          <div className="card-body">
+            <div className="output">
+              <span className={result.type === 'success' ? 'success' : 'error'}>
+                {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : String(result.data)}
               </span>
-            ) : (
-              <span className="muted">Fill form and execute...</span>
-            )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Edit Modal */}
+      {editItem && (
+        <div className="modal-overlay" onClick={() => setEditItem(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>Sửa bản ghi tăng ca</h3>
+            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>
+              {editItem.employeeName} - {fmtDate(editItem.date)}
+            </p>
+            <div className="field"><label>Ngày</label><input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} /></div>
+            <div className="form-row">
+              <div className="field"><label>Bắt đầu</label><input type="datetime-local" value={editForm.startTime} onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))} /></div>
+              <div className="field"><label>Kết thúc</label><input type="datetime-local" value={editForm.endTime} onChange={e => setEditForm(f => ({ ...f, endTime: e.target.value }))} /></div>
+            </div>
+            <div className="field"><label>Lý do</label><input value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} /></div>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setEditItem(null)}>Hủy</button>
+              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>
+                {loading ? <span className="spinner" /> : null} Lưu
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

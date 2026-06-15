@@ -1,27 +1,26 @@
 import { useState } from 'react';
 import { api } from '../api';
 
-function TabButton({ label, active, onClick }) {
-  return (
-    <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>
-      {label}
-    </button>
-  );
+function TabBtn({ label, active, onClick }) {
+  return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>{label}</button>;
 }
 
 export default function Shifts() {
-  const [activeTab, setActiveTab] = useState('create');
+  const [tab, setTab] = useState('create');
   const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState(null);
+  const [result, setResult] = useState(null);
+  const [list, setList] = useState(null);
 
-  // Tab: Create
+  const show = (type, data) => setResult({ type, data });
+
+  // ─── Create ───
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [late, setLate] = useState('30');
 
-  const handleCreate = async () => {
+  const doCreate = async () => {
     if (!code || !name) return;
     setLoading(true);
     try {
@@ -30,87 +29,120 @@ export default function Shifts() {
         startTime: start + ':00', endTime: end + ':00',
         allowedLateMinutes: parseInt(late) || 30,
       });
-      setOutput({ type: 'success', data });
+      show('success', data);
       setCode(''); setName(''); setStart(''); setEnd(''); setLate('30');
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
   };
 
-  // Tab: List
-  const handleList = async () => {
+  // ─── List ───
+  const doList = async () => {
     setLoading(true);
     try {
       const data = await api('GET', '/api/Shifts');
-      setOutput({ type: 'success', data });
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
+      setList(Array.isArray(data) ? data : []);
+      show('success', data);
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
   };
 
-  const handleSeed = async () => {
+  const doSeed = async () => {
+    setLoading(true);
+    try { show('success', await api('POST', '/api/Shifts/seed')); }
+    catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
+  };
+
+  // ─── Delete ───
+  const doDelete = async (id) => {
+    if (!confirm('Xóa ca làm việc này?')) return;
     setLoading(true);
     try {
-      const data = await api('POST', '/api/Shifts/seed');
-      setOutput({ type: 'success', data });
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
+      await api('DELETE', `/api/Shifts/${id}`);
+      show('success', 'Đã xóa ca làm việc');
+      doList();
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
   };
 
   return (
     <div className="page">
       <div className="page-header">
-        <h2>Shifts</h2>
+        <h2>Ca làm việc</h2>
       </div>
 
       <div className="card">
         <div className="tabs">
-          <TabButton label="Create" active={activeTab === 'create'} onClick={() => setActiveTab('create')} />
-          <TabButton label="List" active={activeTab === 'list'} onClick={() => setActiveTab('list')} />
+          <TabBtn label="Tạo ca" active={tab === 'create'} onClick={() => setTab('create')} />
+          <TabBtn label="Danh sách" active={tab === 'list'} onClick={() => { setTab('list'); if (!list) doList(); }} />
         </div>
 
-        {activeTab === 'create' && (
+        {tab === 'create' && (
           <div className="card-body">
             <div className="form-row">
-              <div className="field"><label>Shift Code</label><input value={code} onChange={e => setCode(e.target.value)} placeholder="MORN" /></div>
-              <div className="field"><label>Shift Name</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Morning Shift" /></div>
+              <div className="field"><label>Mã ca</label><input value={code} onChange={e => setCode(e.target.value)} placeholder="VD: MORN" /></div>
+              <div className="field"><label>Tên ca</label><input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Ca sáng" /></div>
             </div>
             <div className="form-row">
-              <div className="field"><label>Start Time</label><input type="time" value={start} onChange={e => setStart(e.target.value)} /></div>
-              <div className="field"><label>End Time</label><input type="time" value={end} onChange={e => setEnd(e.target.value)} /></div>
+              <div className="field"><label>Giờ bắt đầu</label><input type="time" value={start} onChange={e => setStart(e.target.value)} /></div>
+              <div className="field"><label>Giờ kết thúc</label><input type="time" value={end} onChange={e => setEnd(e.target.value)} /></div>
             </div>
-            <div className="field"><label>Allowed Late (mins)</label><input type="number" value={late} onChange={e => setLate(e.target.value)} /></div>
-            <button className="btn btn-success" onClick={handleCreate} disabled={loading || !code || !name}>
-              {loading ? <span className="spinner" /> : null} Add Shift
+            <div className="field"><label>Số phút cho phép đi muộn</label><input type="number" value={late} onChange={e => setLate(e.target.value)} /></div>
+            <button className="btn btn-success" onClick={doCreate} disabled={loading || !code || !name}>
+              {loading ? <span className="spinner" /> : null} Thêm ca làm việc
             </button>
           </div>
         )}
 
-        {activeTab === 'list' && (
+        {tab === 'list' && (
           <div className="card-body">
             <div className="form-row">
-              <button className="btn btn-primary" onClick={handleList} disabled={loading}>
-                {loading ? <span className="spinner" /> : null} Get All Shifts
+              <button className="btn btn-primary" onClick={doList} disabled={loading}>
+                {loading ? <span className="spinner" /> : null} Xem tất cả
               </button>
-              <button className="btn btn-outline" onClick={handleSeed} disabled={loading}>
-                {loading ? <span className="spinner" /> : null} Seed Default Shifts
+              <button className="btn btn-outline" onClick={doSeed} disabled={loading}>
+                {loading ? <span className="spinner" /> : null} Tạo ca mặc định
               </button>
             </div>
+
+            {list && list.length > 0 ? (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã</th><th>Tên ca</th><th>Bắt đầu</th><th>Kết thúc</th><th>Phép đi muộn</th><th>Hoạt động</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {list.map(item => (
+                      <tr key={item.id}>
+                        <td><strong>{item.shiftCode}</strong></td>
+                        <td>{item.shiftName}</td>
+                        <td>{item.startTime}</td>
+                        <td>{item.endTime}</td>
+                        <td>{item.allowedLateMinutes} phút</td>
+                        <td>{item.isActive ? '✅' : '❌'}</td>
+                        <td>
+                          <button className="btn-icon delete" title="Xóa" onClick={() => doDelete(item.id)}>🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : list ? <div className="empty-state">Chưa có ca làm việc nào</div> : null}
           </div>
         )}
 
-        <div className="card-body">
-          <div className="output">
-            {output ? (
-              <span className={output.type === 'success' ? 'success' : 'error'}>
-                {typeof output.data === 'object' ? JSON.stringify(output.data, null, 2) : String(output.data)}
+        {result && (
+          <div className="card-body">
+            <div className="output">
+              <span className={result.type === 'success' ? 'success' : 'error'}>
+                {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : String(result.data)}
               </span>
-            ) : (
-              <span className="muted">Create or list shifts...</span>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

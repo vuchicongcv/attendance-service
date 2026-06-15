@@ -1,203 +1,309 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import Pagination from '../components/Pagination';
 
-function TabButton({ label, active, onClick }) {
-  return (
-    <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>
-      {label}
-    </button>
-  );
+const PAGE_SIZE = 10;
+
+function TabBtn({ label, active, onClick }) {
+  return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}>{label}</button>;
+}
+
+const leaveTypeVn = { Annual: 'Năm', Sick: 'Ốm', Personal: 'Cá nhân', Unpaid: 'Không lương', Maternity: 'Thai sản', Bereavement: 'Tang gia' };
+const statusVn = { Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Từ chối', Cancelled: 'Đã hủy' };
+const statusBadge = (s) => {
+  const map = { Pending: 'badge-yellow', Approved: 'badge-green', Rejected: 'badge-red', Cancelled: 'badge-gray' };
+  return <span className={`badge ${map[s] || 'badge-gray'}`}>{statusVn[s] || s}</span>;
+};
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('vi-VN');
 }
 
 export default function Leaves() {
-  const [activeTab, setActiveTab] = useState('create');
+  const [tab, setTab] = useState('create');
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState(null);
+  const [result, setResult] = useState(null);
 
-  useEffect(() => { loadEmployees(); }, []);
+  useEffect(() => { loadEmps(); }, []);
 
-  const loadEmployees = async () => {
-    try {
-      const data = await api('GET', '/api/HRCore/employees');
-      setEmployees(Array.isArray(data) ? data : []);
-    } catch { setEmployees([]); }
+  const loadEmps = async () => {
+    try { const d = await api('GET', '/api/HRCore/employees'); setEmployees(Array.isArray(d) ? d : []); }
+    catch { setEmployees([]); }
   };
 
-  // Tab: Create
-  const [leaveEmp, setLeaveEmp] = useState('');
-  const [leaveType, setLeaveType] = useState('Annual');
-  const [leaveReason, setLeaveReason] = useState('');
-  const [leaveStart, setLeaveStart] = useState('');
-  const [leaveEnd, setLeaveEnd] = useState('');
+  const show = (type, data) => setResult({ type, data });
 
-  const handleCreate = async () => {
-    if (!leaveEmp || !leaveStart || !leaveEnd) return;
+  // ─── Create ───
+  const [emp, setEmp] = useState('');
+  const [type, setType] = useState('Annual');
+  const [reason, setReason] = useState('');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+
+  const doCreate = async () => {
+    if (!emp || !start || !end) return;
     setLoading(true);
     try {
-      const data = await api('POST', '/api/LeaveRequests', {
-        employeeId: leaveEmp,
-        leaveType,
-        startDate: new Date(leaveStart).toISOString(),
-        endDate: new Date(leaveEnd).toISOString(),
-        reason: leaveReason || null,
+      show('success', await api('POST', '/api/LeaveRequests', {
+        employeeId: emp, leaveType: type,
+        startDate: new Date(start).toISOString(),
+        endDate: new Date(end).toISOString(),
+        reason: reason || null,
+      }));
+      setEmp(''); setReason(''); setStart(''); setEnd('');
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
+  };
+
+  // ─── List ───
+  const [fEmp, setFEmp] = useState('');
+  const [fStatus, setFStatus] = useState('');
+  const [list, setList] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+
+  const doList = async (p) => {
+    setLoading(true);
+    const params = [];
+    if (fEmp) params.push(`employeeId=${fEmp}`);
+    if (fStatus) params.push(`status=${fStatus}`);
+    params.push(`page=${p || page}`, `pageSize=${PAGE_SIZE}`);
+    try {
+      const data = await api('GET', '/api/LeaveRequests?' + params.join('&'));
+      setList(data.items || data);
+      setTotal(data.totalCount || 0);
+      setPage(data.page || 1);
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
+  };
+
+  // ─── Approve ───
+  const [apId, setApId] = useState('');
+  const [apStatus, setApStatus] = useState('Approved');
+  const [apReason, setApReason] = useState('');
+
+  const doApprove = async () => {
+    if (!apId) return;
+    setLoading(true);
+    try {
+      show('success', await api('PATCH', `/api/LeaveRequests/${apId}/approve`, { status: apStatus, rejectionReason: apReason || null }));
+      setApId(''); setApReason('');
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
+  };
+
+  // ─── Edit ───
+  const [editItem, setEditItem] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const openEdit = (item) => {
+    setEditItem(item);
+    setEditForm({
+      leaveType: item.leaveType,
+      startDate: item.startDate ? item.startDate.slice(0, 10) : '',
+      endDate: item.endDate ? item.endDate.slice(0, 10) : '',
+      reason: item.reason || '',
+    });
+  };
+  const doEdit = async () => {
+    setLoading(true);
+    try {
+      await api('PUT', `/api/LeaveRequests/${editItem.id}`, {
+        leaveType: editForm.leaveType,
+        startDate: new Date(editForm.startDate).toISOString(),
+        endDate: new Date(editForm.endDate).toISOString(),
+        reason: editForm.reason || null,
       });
-      setOutput({ type: 'success', data });
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
+      setEditItem(null);
+      doList(page);
+      show('success', 'Cập nhật thành công');
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
   };
-
-  // Tab: List
-  const [filterEmp, setFilterEmp] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-
-  const handleList = async () => {
-    setLoading(true);
-    const p = [];
-    if (filterEmp) p.push(`employeeId=${filterEmp}`);
-    if (filterStatus) p.push(`status=${filterStatus}`);
-    try {
-      const data = await api('GET', '/api/LeaveRequests' + (p.length ? '?' + p.join('&') : ''));
-      setOutput({ type: 'success', data });
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
-  };
-
-  // Tab: Approve
-  const [approveId, setApproveId] = useState('');
-  const [approveStatus, setApproveStatus] = useState('Approved');
-  const [approveReason, setApproveReason] = useState('');
-
-  const handleApprove = async () => {
-    if (!approveId) return;
+  const doDelete = async (id) => {
+    if (!confirm('Xóa đơn nghỉ phép này?')) return;
     setLoading(true);
     try {
-      const data = await api('PATCH', `/api/LeaveRequests/${approveId}/approve`, {
-        status: approveStatus,
-        rejectionReason: approveReason || null,
-      });
-      setOutput({ type: 'success', data });
-    } catch (e) {
-      setOutput({ type: 'error', data: e.data || e.message });
-    } finally { setLoading(false); }
+      await api('DELETE', `/api/LeaveRequests/${id}`);
+      doList(page);
+      show('success', 'Đã xóa');
+    } catch (e) { show('error', e.data || e.message); }
+    finally { setLoading(false); }
   };
 
   return (
     <div className="page">
       <div className="page-header">
-        <h2>Leave Requests</h2>
-        <button className="btn btn-outline btn-sm" onClick={loadEmployees}>Refresh Employees</button>
+        <h2>Nghỉ phép</h2>
+        <button className="btn btn-outline btn-sm" onClick={loadEmps}>Làm mới nhân viên</button>
       </div>
 
       <div className="card">
         <div className="tabs">
-          <TabButton label="Create" active={activeTab === 'create'} onClick={() => setActiveTab('create')} />
-          <TabButton label="List" active={activeTab === 'list'} onClick={() => setActiveTab('list')} />
-          <TabButton label="Approve" active={activeTab === 'approve'} onClick={() => setActiveTab('approve')} />
+          <TabBtn label="Tạo đơn" active={tab === 'create'} onClick={() => setTab('create')} />
+          <TabBtn label="Danh sách" active={tab === 'list'} onClick={() => { setTab('list'); if (!list) doList(1); }} />
+          <TabBtn label="Duyệt đơn" active={tab === 'approve'} onClick={() => setTab('approve')} />
         </div>
 
-        {activeTab === 'create' && (
+        {tab === 'create' && (
           <div className="card-body">
             <div className="field">
-              <label>Employee</label>
-              <select value={leaveEmp} onChange={e => setLeaveEmp(e.target.value)}>
-                <option value="">Select employee...</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    [{emp.employeeCode}] {emp.fullName}{emp.departmentName ? ` - ${emp.departmentName}` : ''}
-                  </option>
+              <label>Nhân viên</label>
+              <select value={emp} onChange={e => setEmp(e.target.value)}>
+                <option value="">Chọn nhân viên...</option>
+                {employees.map(e => (
+                  <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}{e.departmentName ? ` - ${e.departmentName}` : ''}</option>
                 ))}
               </select>
             </div>
             <div className="form-row">
               <div className="field">
-                <label>Type</label>
-                <select value={leaveType} onChange={e => setLeaveType(e.target.value)}>
-                  <option>Annual</option><option>Sick</option><option>Personal</option>
-                  <option>Unpaid</option><option>Maternity</option><option>Bereavement</option>
+                <label>Loại nghỉ</label>
+                <select value={type} onChange={e => setType(e.target.value)}>
+                  {Object.entries(leaveTypeVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div className="field">
-                <label>Reason</label>
-                <input value={leaveReason} onChange={e => setLeaveReason(e.target.value)} placeholder="Optional reason" />
+                <label>Lý do</label>
+                <input value={reason} onChange={e => setReason(e.target.value)} placeholder="Lý do (không bắt buộc)" />
               </div>
             </div>
             <div className="form-row">
-              <div className="field"><label>Start</label><input type="date" value={leaveStart} onChange={e => setLeaveStart(e.target.value)} /></div>
-              <div className="field"><label>End</label><input type="date" value={leaveEnd} onChange={e => setLeaveEnd(e.target.value)} /></div>
+              <div className="field"><label>Ngày bắt đầu</label><input type="date" value={start} onChange={e => setStart(e.target.value)} /></div>
+              <div className="field"><label>Ngày kết thúc</label><input type="date" value={end} onChange={e => setEnd(e.target.value)} /></div>
             </div>
-            <button className="btn btn-success" onClick={handleCreate} disabled={loading || !leaveEmp || !leaveStart || !leaveEnd}>
-              {loading ? <span className="spinner" /> : null} Submit Leave Request
+            <button className="btn btn-success" onClick={doCreate} disabled={loading || !emp || !start || !end}>
+              {loading ? <span className="spinner" /> : null} Gửi đơn nghỉ phép
             </button>
           </div>
         )}
 
-        {activeTab === 'list' && (
+        {tab === 'list' && (
           <div className="card-body">
             <div className="form-row">
               <div className="field">
-                <label>Employee</label>
-                <select value={filterEmp} onChange={e => setFilterEmp(e.target.value)}>
-                  <option value="">All</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                      [{emp.employeeCode}] {emp.fullName}
-                    </option>
+                <label>Nhân viên</label>
+                <select value={fEmp} onChange={e => { setFEmp(e.target.value); setPage(1); }}>
+                  <option value="">Tất cả</option>
+                  {employees.map(e => (
+                    <option key={e.id} value={e.id}>[{e.employeeCode}] {e.fullName}</option>
                   ))}
                 </select>
               </div>
               <div className="field">
-                <label>Status</label>
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                  <option value="">All</option>
-                  <option>Pending</option><option>Approved</option><option>Rejected</option><option>Cancelled</option>
+                <label>Trạng thái</label>
+                <select value={fStatus} onChange={e => { setFStatus(e.target.value); setPage(1); }}>
+                  <option value="">Tất cả</option>
+                  {Object.entries(statusVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
             </div>
-            <button className="btn btn-primary" onClick={handleList} disabled={loading}>
-              {loading ? <span className="spinner" /> : null} Search
+            <button className="btn btn-primary" onClick={() => doList(1)} disabled={loading}>
+              {loading ? <span className="spinner" /> : null} Tìm kiếm
             </button>
+
+            {list && Array.isArray(list) && list.length > 0 ? (
+              <>
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>NV</th><th>Loại</th><th>Bắt đầu</th><th>Kết thúc</th><th>Số ngày</th><th>Trạng thái</th><th>Lý do</th><th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map(item => (
+                        <tr key={item.id}>
+                          <td><strong>{item.employeeCode}</strong><br /><small>{item.employeeName}</small></td>
+                          <td>{leaveTypeVn[item.leaveType] || item.leaveType}</td>
+                          <td>{fmtDate(item.startDate)}</td>
+                          <td>{fmtDate(item.endDate)}</td>
+                          <td>{item.durationDays ?? '—'}</td>
+                          <td>{statusBadge(item.status)}</td>
+                          <td><small>{item.reason || '—'}</small></td>
+                          <td>
+                            <div className="actions">
+                              <button className="btn-icon edit" title="Sửa" onClick={() => openEdit(item)}>✏️</button>
+                              <button className="btn-icon delete" title="Xóa" onClick={() => doDelete(item.id)}>🗑️</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={p => { setPage(p); doList(p); }} />
+              </>
+            ) : list ? <div className="empty-state">Không có dữ liệu</div> : null}
           </div>
         )}
 
-        {activeTab === 'approve' && (
+        {tab === 'approve' && (
           <div className="card-body">
             <div className="form-row">
               <div className="field">
-                <label>Request ID</label>
-                <input value={approveId} onChange={e => setApproveId(e.target.value)} placeholder="Leave Request UUID" />
+                <label>Mã đơn</label>
+                <input value={apId} onChange={e => setApId(e.target.value)} placeholder="UUID của đơn nghỉ phép" />
               </div>
               <div className="field">
-                <label>Status</label>
-                <select value={approveStatus} onChange={e => setApproveStatus(e.target.value)}>
-                  <option>Approved</option><option>Rejected</option><option>Cancelled</option>
+                <label>Trạng thái</label>
+                <select value={apStatus} onChange={e => setApStatus(e.target.value)}>
+                  <option value="Approved">Duyệt</option>
+                  <option value="Rejected">Từ chối</option>
+                  <option value="Cancelled">Hủy</option>
                 </select>
               </div>
             </div>
             <div className="field">
-              <label>Rejection Reason</label>
-              <input value={approveReason} onChange={e => setApproveReason(e.target.value)} placeholder="If rejected..." />
+              <label>Lý do từ chối</label>
+              <input value={apReason} onChange={e => setApReason(e.target.value)} placeholder="Nhập lý do nếu từ chối..." />
             </div>
-            <button className="btn btn-warning" onClick={handleApprove} disabled={loading || !approveId}>
-              {loading ? <span className="spinner" /> : null} Submit Review
+            <button className="btn btn-warning" onClick={doApprove} disabled={loading || !apId}>
+              {loading ? <span className="spinner" /> : null} Xác nhận
             </button>
           </div>
         )}
 
-        <div className="card-body">
-          <div className="output">
-            {output ? (
-              <span className={output.type === 'success' ? 'success' : 'error'}>
-                {typeof output.data === 'object' ? JSON.stringify(output.data, null, 2) : String(output.data)}
+        {result && (
+          <div className="card-body">
+            <div className="output">
+              <span className={result.type === 'success' ? 'success' : 'error'}>
+                {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : String(result.data)}
               </span>
-            ) : (
-              <span className="muted">Fill form and execute...</span>
-            )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Edit Modal */}
+      {editItem && (
+        <div className="modal-overlay" onClick={() => setEditItem(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>Sửa đơn nghỉ phép</h3>
+            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--muted-fg)' }}>
+              {editItem.employeeName} - {leaveTypeVn[editItem.leaveType]}
+            </p>
+            <div className="field">
+              <label>Loại nghỉ</label>
+              <select value={editForm.leaveType} onChange={e => setEditForm(f => ({ ...f, leaveType: e.target.value }))}>
+                {Object.entries(leaveTypeVn).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div className="form-row">
+              <div className="field"><label>Ngày bắt đầu</label><input type="date" value={editForm.startDate} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} /></div>
+              <div className="field"><label>Ngày kết thúc</label><input type="date" value={editForm.endDate} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} /></div>
+            </div>
+            <div className="field"><label>Lý do</label><input value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} /></div>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setEditItem(null)}>Hủy</button>
+              <button className="btn btn-primary" onClick={doEdit} disabled={loading}>
+                {loading ? <span className="spinner" /> : null} Lưu
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

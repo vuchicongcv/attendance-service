@@ -2,13 +2,13 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/attendance', label: 'Attendance', icon: '📋' },
-  { to: '/leaves', label: 'Leave Requests', icon: '📝' },
-  { to: '/overtime', label: 'Overtime', icon: '⏰' },
-  { to: '/shifts', label: 'Shifts', icon: '🔄' },
-  { to: '/holidays', label: 'Holidays', icon: '🎉' },
-  { to: '/reports', label: 'Reports', icon: '📈' },
+  { to: '/', label: 'Tổng quan', icon: '📊' },
+  { to: '/attendance', label: 'Chấm công', icon: '📋' },
+  { to: '/leaves', label: 'Nghỉ phép', icon: '📝' },
+  { to: '/overtime', label: 'Tăng ca', icon: '⏰' },
+  { to: '/shifts', label: 'Ca làm việc', icon: '🔄' },
+  { to: '/holidays', label: 'Ngày lễ', icon: '🎉' },
+  { to: '/reports', label: 'Báo cáo', icon: '📈' },
 ];
 
 export default function Layout() {
@@ -24,8 +24,8 @@ export default function Layout() {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h1>attendance</h1>
-          <span className="sidebar-sub">service</span>
+          <h1>Attendance</h1>
+          <span className="sidebar-sub">Hệ thống chấm công</span>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(item => (
@@ -42,7 +42,7 @@ export default function Layout() {
         </nav>
         <div className="sidebar-footer">
           <button className="btn btn-outline w-full" onClick={handleLogout}>
-            Logout
+            Đăng xuất
           </button>
         </div>
       </aside>
